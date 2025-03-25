@@ -1,11 +1,12 @@
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGameState, GameStatus } from '@/hooks/useGameState';
 import MainMenu from '@/components/MainMenu';
 import DroneController from '@/components/DroneController';
 import GameHUD from '@/components/GameHUD';
 import DroneScene from '@/components/DroneScene';
+import { toast } from "@/hooks/use-toast";
 
 const Game: React.FC = () => {
   const {
@@ -25,6 +26,43 @@ const Game: React.FC = () => {
     roll: 0
   });
 
+  const [screenShake, setScreenShake] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const coinAudioRef = useRef<HTMLAudioElement | null>(null);
+  const powerUpAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Initialize audio elements
+  useEffect(() => {
+    // Create audio elements
+    audioRef.current = new Audio();
+    audioRef.current.src = "https://assets.mixkit.co/active_storage/sfx/212/212-preview.mp3"; // Crash sound
+    audioRef.current.volume = 0.5;
+    
+    coinAudioRef.current = new Audio();
+    coinAudioRef.current.src = "https://assets.mixkit.co/active_storage/sfx/270/270-preview.mp3"; // Coin collection sound
+    coinAudioRef.current.volume = 0.3;
+    
+    powerUpAudioRef.current = new Audio();
+    powerUpAudioRef.current.src = "https://assets.mixkit.co/active_storage/sfx/2020/2020-preview.mp3"; // Power-up sound
+    powerUpAudioRef.current.volume = 0.4;
+    
+    return () => {
+      // Clean up audio elements
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+      if (coinAudioRef.current) {
+        coinAudioRef.current.pause();
+        coinAudioRef.current = null;
+      }
+      if (powerUpAudioRef.current) {
+        powerUpAudioRef.current.pause();
+        powerUpAudioRef.current = null;
+      }
+    };
+  }, []);
+
   const handleControlChange = useCallback((newControls: {
     throttle: number;
     pitch: number;
@@ -35,19 +73,80 @@ const Game: React.FC = () => {
   }, []);
 
   const handleCrash = useCallback(() => {
+    // Play crash sound
+    if (audioRef.current) {
+      audioRef.current.currentTime = 0;
+      audioRef.current.play().catch(e => console.log("Audio play failed:", e));
+    }
+    
+    // Trigger screen shake effect
+    setScreenShake(true);
+    setTimeout(() => setScreenShake(false), 500);
+    
+    // Show toast notification
+    toast({
+      title: "Drone Crashed!",
+      description: "Your drone hit an obstacle.",
+      variant: "destructive"
+    });
+    
+    // Handle crash in game state
     crashDrone();
   }, [crashDrone]);
 
   const handleCoinCollect = useCallback((value: number) => {
+    // Play coin collection sound
+    if (coinAudioRef.current) {
+      coinAudioRef.current.currentTime = 0;
+      coinAudioRef.current.play().catch(e => console.log("Audio play failed:", e));
+    }
+    
+    // Add points to score
     addPoints(value);
+    
+    // Show notification for significant point gains
+    if (value >= 50) {
+      toast({
+        title: "Bonus Points!",
+        description: `You collected ${value} points!`,
+        variant: "default"
+      });
+    }
   }, [addPoints]);
 
   const handlePowerUpCollect = useCallback((type: any, duration: number) => {
+    // Play power-up sound
+    if (powerUpAudioRef.current) {
+      powerUpAudioRef.current.currentTime = 0;
+      powerUpAudioRef.current.play().catch(e => console.log("Audio play failed:", e));
+    }
+    
+    // Activate power-up
     activatePowerUp(type, duration);
+    
+    // Show toast notification for power-up
+    const powerUpNames = {
+      shield: "Shield",
+      speed: "Speed Boost",
+      magnet: "Coin Magnet",
+      timeFreeze: "Time Freeze"
+    };
+    
+    toast({
+      title: `${powerUpNames[type]} Activated!`,
+      description: `Duration: ${duration} seconds`,
+      variant: "default"
+    });
   }, [activatePowerUp]);
 
   return (
-    <div className="w-full h-screen overflow-hidden">
+    <motion.div 
+      className="w-full h-screen overflow-hidden"
+      animate={screenShake ? {
+        x: [0, -10, 10, -10, 10, 0],
+        transition: { duration: 0.5, ease: "easeInOut" }
+      } : {}}
+    >
       {/* Three.js Scene */}
       <DroneScene
         isPlaying={state.status === 'playing'}
@@ -143,7 +242,7 @@ const Game: React.FC = () => {
       {(state.status === 'playing') && (
         <DroneController onControlChange={handleControlChange} />
       )}
-    </div>
+    </motion.div>
   );
 };
 

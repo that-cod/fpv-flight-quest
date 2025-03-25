@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { ChevronUp, ChevronRight, ChevronDown, ChevronLeft } from 'lucide-react';
 
@@ -20,6 +20,12 @@ const DroneController: React.FC<DroneControllerProps> = ({ onControlChange }) =>
     KeyS: false,
     KeyA: false,
   });
+
+  // Use a ref to prevent creating a new function on each render
+  const onControlChangeRef = useRef(onControlChange);
+  useEffect(() => {
+    onControlChangeRef.current = onControlChange;
+  }, [onControlChange]);
 
   // Handle keyboard controls
   useEffect(() => {
@@ -49,38 +55,36 @@ const DroneController: React.FC<DroneControllerProps> = ({ onControlChange }) =>
   // Update controls based on keyboard or touch input
   useEffect(() => {
     // Convert keyboard input to stick positions
-    const newLeftStick = {
-      x: (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0),
-      y: (keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0)
-    };
+    let newLeftStick = { ...leftStick };
+    let newRightStick = { ...rightStick };
+    
+    const keyboardLeftX = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0);
+    const keyboardLeftY = (keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0);
+    const keyboardRightX = (keys.ArrowRight ? 1 : 0) - (keys.ArrowLeft ? 1 : 0);
+    const keyboardRightY = (keys.ArrowUp ? 1 : 0) - (keys.ArrowDown ? 1 : 0);
 
-    const newRightStick = {
-      x: (keys.ArrowRight ? 1 : 0) - (keys.ArrowLeft ? 1 : 0),
-      y: (keys.ArrowUp ? 1 : 0) - (keys.ArrowDown ? 1 : 0)
-    };
-
-    // Update sticks if keyboard input is present, otherwise use touch/mouse input
-    if (newLeftStick.x !== 0 || newLeftStick.y !== 0) {
-      setLeftStick(newLeftStick);
+    // Update sticks if keyboard input is present
+    if (keyboardLeftX !== 0 || keyboardLeftY !== 0) {
+      newLeftStick = { x: keyboardLeftX, y: keyboardLeftY };
     }
 
-    if (newRightStick.x !== 0 || newRightStick.y !== 0) {
-      setRightStick(newRightStick);
+    if (keyboardRightX !== 0 || keyboardRightY !== 0) {
+      newRightStick = { x: keyboardRightX, y: keyboardRightY };
     }
 
     // Calculate control values from stick positions
     const controls = {
-      throttle: leftStick.y, // Up/down movement
-      roll: leftStick.x,     // Banking left/right
-      pitch: rightStick.y,   // Forward/backward tilt
-      yaw: rightStick.x      // Turning left/right
+      throttle: newLeftStick.y, // Up/down movement
+      roll: newLeftStick.x,     // Banking left/right
+      pitch: newRightStick.y,   // Forward/backward tilt
+      yaw: newRightStick.x      // Turning left/right
     };
 
-    onControlChange(controls);
-  }, [leftStick, rightStick, keys, onControlChange]);
+    // Use the ref to prevent dependency on onControlChange
+    onControlChangeRef.current(controls);
+  }, [leftStick, rightStick, keys]);
 
-  // Handle touch input for left stick
-  const handleLeftStickMove = (e: React.MouseEvent | React.TouchEvent) => {
+  const handleLeftStickMove = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     let clientX, clientY;
     
     if ('touches' in e) {
@@ -107,10 +111,9 @@ const DroneController: React.FC<DroneControllerProps> = ({ onControlChange }) =>
     y = Math.max(-1, Math.min(1, y));
     
     setLeftStick({ x, y });
-  };
+  }, []);
 
-  // Handle touch input for right stick
-  const handleRightStickMove = (e: React.MouseEvent | React.TouchEvent) => {
+  const handleRightStickMove = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     let clientX, clientY;
     
     if ('touches' in e) {
@@ -137,13 +140,13 @@ const DroneController: React.FC<DroneControllerProps> = ({ onControlChange }) =>
     y = Math.max(-1, Math.min(1, y));
     
     setRightStick({ x, y });
-  };
+  }, []);
 
-  const handleStickRelease = () => {
+  const handleStickRelease = useCallback(() => {
     // Reset stick positions when touch/mouse is released
     setLeftStick({ x: 0, y: 0 });
     setRightStick({ x: 0, y: 0 });
-  };
+  }, []);
 
   return (
     <div className="fixed bottom-0 inset-x-0 z-40 p-6 pointer-events-none">
