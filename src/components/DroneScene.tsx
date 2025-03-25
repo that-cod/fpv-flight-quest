@@ -1,7 +1,5 @@
-
 import React, { useRef, useEffect, useState } from 'react';
 import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { DronePhysics, updateDronePhysics, checkCollision, checkCoinCollection } from '@/utils/physics';
 import { PowerUpType } from '@/hooks/useGameState';
 
