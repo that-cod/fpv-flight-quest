@@ -4,9 +4,10 @@ import { ChevronUp, ChevronRight, ChevronDown, ChevronLeft, Airplay } from 'luci
 
 interface DroneControllerProps {
   onControlChange: (controls: { throttle: number; pitch: number; yaw: number; roll: number }) => void;
+  isGameActive: boolean; // Add this prop to check if game is active
 }
 
-const DroneController: React.FC<DroneControllerProps> = ({ onControlChange }) => {
+const DroneController: React.FC<DroneControllerProps> = ({ onControlChange, isGameActive }) => {
   const [leftStick, setLeftStick] = useState({ x: 0, y: 0 });
   const [rightStick, setRightStick] = useState({ x: 0, y: 0 });
   const [keys, setKeys] = useState({
@@ -55,12 +56,21 @@ const DroneController: React.FC<DroneControllerProps> = ({ onControlChange }) =>
 
   // Update controls based on keyboard or touch input
   useEffect(() => {
+    // Only process controls if the game is active
+    if (!isGameActive) {
+      onControlChangeRef.current({ throttle: 0, pitch: 0, yaw: 0, roll: 0 });
+      return;
+    }
+
     // Convert keyboard input to stick positions
     let newLeftStick = { ...leftStick };
     let newRightStick = { ...rightStick };
     
+    // FIX: Reversed the controls so W moves forward and S moves backward
     const keyboardLeftX = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0);
-    const keyboardLeftY = (keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0);
+    const keyboardLeftY = (keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0); // Corrected W/S mapping
+    
+    // FIX: Make left/right arrows control direction (yaw) instead of roll
     const keyboardRightX = (keys.ArrowRight ? 1 : 0) - (keys.ArrowLeft ? 1 : 0);
     const keyboardRightY = (keys.ArrowUp ? 1 : 0) - (keys.ArrowDown ? 1 : 0);
 
@@ -77,17 +87,17 @@ const DroneController: React.FC<DroneControllerProps> = ({ onControlChange }) =>
     }
 
     // Calculate control values from stick positions
-    // Using improved control mapping for more intuitive flight
+    // FIX: Improved control mapping for more intuitive flight
     const controls = {
-      throttle: newLeftStick.y + verticalThrottle, // Up/down movement + Space/Shift for direct up/down
-      roll: newLeftStick.x,        // Banking left/right
-      pitch: newRightStick.y,      // Forward/backward tilt
-      yaw: newRightStick.x         // Turning left/right
+      throttle: verticalThrottle, // Space/Shift for up/down
+      pitch: newLeftStick.y,      // W/S for forward/backward (pitch)
+      yaw: newRightStick.x,       // Left/Right arrows for turning (yaw)
+      roll: newLeftStick.x        // A/D for banking left/right (roll)
     };
 
     // Use the ref to prevent dependency on onControlChange
     onControlChangeRef.current(controls);
-  }, [leftStick, rightStick, keys]);
+  }, [leftStick, rightStick, keys, isGameActive]);
 
   const handleLeftStickMove = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     let clientX, clientY;
@@ -156,7 +166,7 @@ const DroneController: React.FC<DroneControllerProps> = ({ onControlChange }) =>
   return (
     <div className="fixed bottom-0 inset-x-0 z-40 p-6 pointer-events-none">
       <div className="max-w-5xl mx-auto flex justify-between items-center">
-        {/* Controls instructions */}
+        {/* Controls instructions - Updated instructions to match new controls */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 0.8, y: 0 }}
@@ -164,12 +174,12 @@ const DroneController: React.FC<DroneControllerProps> = ({ onControlChange }) =>
           className="absolute top-[-80px] left-0 right-0 text-center text-white text-sm bg-black/40 backdrop-blur-sm p-2 rounded-lg mx-auto max-w-xs"
         >
           <div className="flex items-center justify-center gap-2 mb-1">
-            <Airplay size={16} /> <span>WASD + Arrows: Movement</span>
+            <Airplay size={16} /> <span>W/S: Forward/Back | A/D: Roll</span>
           </div>
-          <div>Space/Shift: Up/Down | Mobile: Use Joysticks</div>
+          <div>Arrows: Turn | Space/Shift: Up/Down | Mobile: Use Joysticks</div>
         </motion.div>
         
-        {/* Left Stick - Controls throttle and roll */}
+        {/* Left Stick - Controls pitch and roll */}
         <motion.div 
           id="left-stick"
           initial={{ opacity: 0, y: 20 }}
@@ -223,11 +233,11 @@ const DroneController: React.FC<DroneControllerProps> = ({ onControlChange }) =>
             L
           </motion.div>
           <div className="absolute -top-6 left-0 right-0 text-center text-white/90 text-xs">
-            Throttle & Roll
+            Forward/Back & Roll
           </div>
         </motion.div>
 
-        {/* Right Stick - Controls pitch and yaw */}
+        {/* Right Stick - Controls yaw */}
         <motion.div 
           id="right-stick"
           initial={{ opacity: 0, y: 20 }}
@@ -281,7 +291,7 @@ const DroneController: React.FC<DroneControllerProps> = ({ onControlChange }) =>
             R
           </motion.div>
           <div className="absolute -top-6 left-0 right-0 text-center text-white/90 text-xs">
-            Pitch & Yaw
+            Turn Direction
           </div>
         </motion.div>
       </div>

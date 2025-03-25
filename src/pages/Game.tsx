@@ -162,6 +162,9 @@ const Game: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [pauseGame, state.status]);
 
+  // Check if the game is in an active playable state
+  const isGameActive = state.status === 'playing';
+
   return (
     <motion.div 
       className="w-full h-screen overflow-hidden bg-gradient-to-b from-black/20 to-transparent"
@@ -172,7 +175,7 @@ const Game: React.FC = () => {
     >
       {/* Three.js Scene */}
       <DroneScene
-        isPlaying={state.status === 'playing'}
+        isPlaying={isGameActive} // Only pass true if game is actively playing
         controls={controls}
         powerUp={state.powerUp}
         onCrash={handleCrash}
@@ -255,7 +258,7 @@ const Game: React.FC = () => {
       </AnimatePresence>
 
       {/* Game HUD - only show during gameplay */}
-      {(state.status === 'playing') && (
+      {isGameActive && (
         <GameHUD
           score={state.score}
           highScore={state.highScore}
@@ -267,8 +270,11 @@ const Game: React.FC = () => {
       )}
 
       {/* Controls - only show during gameplay */}
-      {(state.status === 'playing') && (
-        <DroneController onControlChange={handleControlChange} />
+      {state.status !== 'crashed' && (
+        <DroneController 
+          onControlChange={handleControlChange} 
+          isGameActive={isGameActive} // Pass game active state to controller
+        />
       )}
     </motion.div>
   );

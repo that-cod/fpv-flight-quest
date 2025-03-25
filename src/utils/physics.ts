@@ -1,4 +1,3 @@
-
 export interface DronePhysics {
   position: {
     x: number;
@@ -64,11 +63,11 @@ export const updateDronePhysics = (
   // Update rotation based on controls with improved responsiveness
   const rotationSpeed = 3.0 * deltaTime; // Faster rotation
   const newRotation = {
-    // Pitch (forward/backward tilt) - now more responsive
+    // Pitch (forward/backward tilt) - FIX: pitch control is now based on W/S (positive for W, negative for S)
     x: rotation.x + controls.pitch * rotationSpeed * 1.5,
-    // Yaw (turning left/right)
+    // Yaw (turning left/right) - FIX: yaw is now controlled by left/right arrows
     y: rotation.y + controls.yaw * rotationSpeed * 1.2,
-    // Roll (banking left/right)
+    // Roll (banking left/right) - FIX: roll is now controlled by A/D
     z: rotation.z + controls.roll * rotationSpeed * 1.2
   };
 
@@ -79,27 +78,26 @@ export const updateDronePhysics = (
 
   // Calculate forces based on controls and current rotation
   // This creates a more realistic flight model where the drone moves in the direction it's facing
-  const throttleForce = controls.throttle * maxAcceleration;
+  const throttleForce = Math.max(0, controls.throttle) * maxAcceleration; // Only positive throttle for lift
   
   // Forward force based on pitch and current facing direction
-  const forwardForce = Math.cos(newRotation.x) * throttleForce * 1.5; // Increased forward movement
+  // FIX: Adjusted to make W move forward and S move backward
+  const forwardForce = -Math.sin(newRotation.x) * maxAcceleration * 1.2;
   
   // Calculate forward direction vector based on yaw
   const forwardX = Math.sin(newRotation.y) * forwardForce;
   const forwardZ = Math.cos(newRotation.y) * forwardForce;
   
-  // Vertical force (lift vs gravity)
-  const verticalForce = Math.sin(newRotation.x) * throttleForce * 1.2; // Stronger vertical movement
+  // Vertical force (lift vs gravity) - controlled by Space/Shift
+  const directVerticalControl = controls.throttle * maxAcceleration * 1.2;
   
   // Horizontal force based on roll (banking)
-  const horizontalForce = Math.sin(newRotation.z) * throttleForce * 0.6; // More responsive banking
+  const horizontalForce = Math.sin(newRotation.z) * maxAcceleration * 0.6;
   
-  // Calculate forces - add a direct vertical control component based on throttle
-  const directVerticalControl = controls.throttle > 0 ? controls.throttle * 5 : 0;
-  
+  // Calculate forces
   const forces = {
     x: forwardX + horizontalForce,
-    y: throttleForce * 1.0 - gravity + verticalForce + directVerticalControl, // Increased lift force
+    y: directVerticalControl - gravity, // Simplified vertical control
     z: forwardZ
   };
 
