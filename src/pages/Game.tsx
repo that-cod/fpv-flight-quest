@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGameState, GameStatus } from '@/hooks/useGameState';
@@ -7,6 +8,7 @@ import GameHUD from '@/components/GameHUD';
 import DroneScene from '@/components/DroneScene';
 import { toast } from "@/hooks/use-toast";
 import { Airplay } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const Game: React.FC = () => {
   const {
@@ -26,11 +28,13 @@ const Game: React.FC = () => {
     roll: 0
   });
 
+  const isMobile = useIsMobile();
   const [screenShake, setScreenShake] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const coinAudioRef = useRef<HTMLAudioElement | null>(null);
   const powerUpAudioRef = useRef<HTMLAudioElement | null>(null);
   const backgroundMusicRef = useRef<HTMLAudioElement | null>(null);
+  const hasShownControlsToast = useRef<boolean>(false);
 
   // Initialize audio elements
   useEffect(() => {
@@ -80,8 +84,11 @@ const Game: React.FC = () => {
     yaw: number;
     roll: number;
   }) => {
-    setControls(newControls);
-  }, []);
+    // Only update controls if game is still playing (prevents control after crash)
+    if (state.status === 'playing') {
+      setControls(newControls);
+    }
+  }, [state.status]);
 
   const handleCrash = useCallback(() => {
     // Play crash sound
@@ -103,6 +110,14 @@ const Game: React.FC = () => {
     
     // Handle crash in game state
     crashDrone();
+    
+    // Clear controls to prevent continued movement after crash
+    setControls({
+      throttle: 0,
+      pitch: 0,
+      yaw: 0,
+      roll: 0
+    });
   }, [crashDrone]);
 
   const handleCoinCollect = useCallback((value: number) => {
@@ -162,6 +177,25 @@ const Game: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [pauseGame, state.status]);
 
+  // Show mobile controls help toast
+  useEffect(() => {
+    if (state.status === 'playing' && isMobile && !hasShownControlsToast.current) {
+      setTimeout(() => {
+        toast({
+          title: "Mobile Controls",
+          description: "Use left joystick for height and rotation, right joystick for direction.",
+          duration: 5000,
+        });
+        hasShownControlsToast.current = true;
+      }, 2000);
+    }
+    
+    // Reset the flag when returning to menu
+    if (state.status === 'menu') {
+      hasShownControlsToast.current = false;
+    }
+  }, [state.status, isMobile]);
+
   // Check if the game is in an active playable state
   const isGameActive = state.status === 'playing';
 
@@ -175,7 +209,7 @@ const Game: React.FC = () => {
     >
       {/* Three.js Scene */}
       <DroneScene
-        isPlaying={isGameActive} // Only pass true if game is actively playing
+        isPlaying={isGameActive}
         controls={controls}
         powerUp={state.powerUp}
         onCrash={handleCrash}
@@ -269,11 +303,11 @@ const Game: React.FC = () => {
         />
       )}
 
-      {/* Controls - only show during gameplay */}
+      {/* Controls - only show when not crashed */}
       {state.status !== 'crashed' && (
         <DroneController 
           onControlChange={handleControlChange} 
-          isGameActive={isGameActive} // Pass game active state to controller
+          isGameActive={isGameActive}
         />
       )}
     </motion.div>

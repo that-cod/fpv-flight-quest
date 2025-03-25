@@ -1,3 +1,4 @@
+
 export interface DronePhysics {
   position: {
     x: number;
@@ -28,14 +29,14 @@ export interface DronePhysics {
 
 export const createDronePhysics = (): DronePhysics => {
   return {
-    position: { x: 0, y: 20, z: 0 }, // Start at a higher position (20 instead of 5)
+    position: { x: 0, y: 30, z: 0 }, // Start at a higher position for better visibility
     rotation: { x: 0, y: 0, z: 0 },
     velocity: { x: 0, y: 0, z: 0 },
     acceleration: { x: 0, y: 0, z: 0 },
     mass: 1,
-    drag: 0.15, // Increased drag for more realistic deceleration
-    maxSpeed: 40, // Increased max speed
-    maxAcceleration: 12, // Increased acceleration
+    drag: 0.2, // Increased drag for better mobile control
+    maxSpeed: 60, // Increased max speed for better gameplay
+    maxAcceleration: 15, // Increased acceleration for responsive controls
     gravity: 9.8,
   };
 };
@@ -58,57 +59,52 @@ export const updateDronePhysics = (
     gravity
   } = physics;
 
-  const actualMaxSpeed = powerUps.speedBoost ? maxSpeed * 1.7 : maxSpeed;
+  // Increased speed boost for more exciting gameplay
+  const actualMaxSpeed = powerUps.speedBoost ? maxSpeed * 2.0 : maxSpeed;
 
-  // Update rotation based on controls with improved responsiveness
-  const rotationSpeed = 3.0 * deltaTime; // Faster rotation
+  // More responsive rotation for mobile
+  const rotationSpeed = 3.5 * deltaTime;
   const newRotation = {
-    // Pitch (forward/backward tilt) - FIX: pitch control is now based on W/S (positive for W, negative for S)
-    x: rotation.x + controls.pitch * rotationSpeed * 1.5,
-    // Yaw (turning left/right) - FIX: yaw is now controlled by left/right arrows
-    y: rotation.y + controls.yaw * rotationSpeed * 1.2,
-    // Roll (banking left/right) - FIX: roll is now controlled by A/D
-    z: rotation.z + controls.roll * rotationSpeed * 1.2
+    x: rotation.x + controls.pitch * rotationSpeed * 1.8,
+    y: rotation.y + controls.yaw * rotationSpeed * 1.5,
+    z: rotation.z + controls.roll * rotationSpeed * 1.5
   };
 
-  // Apply damping to rotation for smoother control
-  newRotation.x *= 0.92;
-  newRotation.y *= 0.95;
-  newRotation.z *= 0.92;
+  // More responsive damping for smooth control on mobile
+  newRotation.x *= 0.9;
+  newRotation.y *= 0.92;
+  newRotation.z *= 0.9;
 
-  // Calculate forces based on controls and current rotation
-  // This creates a more realistic flight model where the drone moves in the direction it's facing
-  const throttleForce = Math.max(0, controls.throttle) * maxAcceleration; // Only positive throttle for lift
+  // Improved movement physics for more intuitive control
+  const throttleForce = Math.max(0, controls.throttle) * maxAcceleration;
   
-  // Forward force based on pitch and current facing direction
-  // FIX: Adjusted to make W move forward and S move backward
-  const forwardForce = -Math.sin(newRotation.x) * maxAcceleration * 1.2;
+  // Updated forward force calculation for more intuitive W/S controls
+  const forwardForce = -Math.sin(newRotation.x) * maxAcceleration * 1.5;
   
-  // Calculate forward direction vector based on yaw
+  // Updated direction vectors for better yaw control
   const forwardX = Math.sin(newRotation.y) * forwardForce;
   const forwardZ = Math.cos(newRotation.y) * forwardForce;
   
-  // Vertical force (lift vs gravity) - controlled by Space/Shift
-  const directVerticalControl = controls.throttle * maxAcceleration * 1.2;
+  // Improved vertical control
+  const directVerticalControl = controls.throttle * maxAcceleration * 1.5;
   
-  // Horizontal force based on roll (banking)
-  const horizontalForce = Math.sin(newRotation.z) * maxAcceleration * 0.6;
+  // Better banking physics
+  const horizontalForce = Math.sin(newRotation.z) * maxAcceleration * 0.8;
   
-  // Calculate forces
   const forces = {
     x: forwardX + horizontalForce,
-    y: directVerticalControl - gravity, // Simplified vertical control
+    y: directVerticalControl - gravity,
     z: forwardZ
   };
 
-  // Calculate new acceleration
+  // Calculate acceleration
   const newAcceleration = {
     x: forces.x / mass,
     y: forces.y / mass,
     z: forces.z / mass
   };
 
-  // Calculate new velocity with drag and momentum
+  // Improved drag model for better feel
   const dragFactor = 1 - (drag * deltaTime);
   const newVelocity = {
     x: (velocity.x + newAcceleration.x * deltaTime) * dragFactor,
@@ -116,7 +112,7 @@ export const updateDronePhysics = (
     z: (velocity.z + newAcceleration.z * deltaTime) * dragFactor
   };
 
-  // Limit velocity to max speed
+  // Apply speed limits
   const speed = Math.sqrt(
     newVelocity.x * newVelocity.x +
     newVelocity.y * newVelocity.y +
@@ -137,26 +133,26 @@ export const updateDronePhysics = (
     z: position.z + newVelocity.z * deltaTime
   };
 
-  // Ensure drone doesn't go below ground with a higher minimum altitude
-  if (newPosition.y < 1.5) { // Increased minimum height
-    newPosition.y = 1.5;
-    newVelocity.y = Math.abs(newVelocity.y) * 0.3; // Bounce effect
+  // Higher minimum altitude for easier gameplay
+  if (newPosition.y < 2.5) {
+    newPosition.y = 2.5;
+    newVelocity.y = Math.abs(newVelocity.y) * 0.3;
   }
 
-  // Add world boundaries to prevent flying too far
-  const worldBoundary = 220; // Increased boundary
+  // Expanded world boundaries for 360 exploration
+  const worldBoundary = 500; // Much larger world boundary for infinite feel
   if (Math.abs(newPosition.x) > worldBoundary) {
     newPosition.x = Math.sign(newPosition.x) * worldBoundary;
-    newVelocity.x *= -0.3; // Bounce off boundary
+    newVelocity.x *= -0.3;
   }
   
   if (Math.abs(newPosition.z) > worldBoundary) {
     newPosition.z = Math.sign(newPosition.z) * worldBoundary;
-    newVelocity.z *= -0.3; // Bounce off boundary
+    newVelocity.z *= -0.3;
   }
 
-  // Add altitude ceiling
-  const maxAltitude = 120; // Maximum flying height
+  // Higher altitude ceiling
+  const maxAltitude = 150;
   if (newPosition.y > maxAltitude) {
     newPosition.y = maxAltitude;
     newVelocity.y = Math.min(0, newVelocity.y);
@@ -171,7 +167,7 @@ export const updateDronePhysics = (
   };
 };
 
-// Improved collision detection with better accuracy
+// Improved collision detection with larger detection radius for mobile friendliness
 export const checkCollision = (
   dronePosition: { x: number; y: number; z: number },
   droneRadius: number,
@@ -180,24 +176,24 @@ export const checkCollision = (
     radius: number;
   }>
 ): boolean => {
-  // Better collision detection with more precise radius checks
   for (const obstacle of obstacles) {
     const dx = dronePosition.x - obstacle.position.x;
     const dy = dronePosition.y - obstacle.position.y;
     const dz = dronePosition.z - obstacle.position.z;
     
     const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
-    const minDistance = droneRadius + obstacle.radius;
+    // Slightly larger margin for easier gameplay
+    const minDistance = droneRadius + obstacle.radius * 0.9;
     
     if (distance < minDistance) {
-      return true; // Collision detected
+      return true;
     }
   }
   
-  return false; // No collision
+  return false;
 };
 
-// Improved coin collection with magnetic effect support
+// Greatly improved coin collection with larger magnetic effect
 export const checkCoinCollection = (
   dronePosition: { x: number; y: number; z: number },
   droneRadius: number,
@@ -209,7 +205,9 @@ export const checkCoinCollection = (
   hasMagnet: boolean = false
 ): number[] => {
   const collectedIndices: number[] = [];
-  const magnetRadius = hasMagnet ? droneRadius * 8 : droneRadius; // Increased magnet range
+  // Much larger collection radius for mobile-friendliness
+  const baseRadius = droneRadius * 1.5; 
+  const magnetRadius = hasMagnet ? baseRadius * 12 : baseRadius;
   
   coins.forEach((coin, index) => {
     if (coin.collected) return;
@@ -220,15 +218,16 @@ export const checkCoinCollection = (
     
     const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
     
-    // If magnet power-up is active, pull coins towards the drone
+    // Much stronger magnet pull
     if (hasMagnet && distance < magnetRadius) {
-      const pullStrength = 0.3; // Stronger pull
+      const pullStrength = 0.5;
       coin.position.x += dx * pullStrength;
       coin.position.y += dy * pullStrength;
       coin.position.z += dz * pullStrength;
     }
     
-    if (distance < (droneRadius + coin.radius)) {
+    // Larger collection radius for easier gameplay
+    if (distance < (baseRadius + coin.radius * 1.5)) {
       collectedIndices.push(index);
     }
   });

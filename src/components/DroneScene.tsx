@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect, useState } from 'react';
 import * as THREE from 'three';
 import { DronePhysics, updateDronePhysics, checkCollision, checkCoinCollection, createDronePhysics } from '@/utils/physics';
@@ -67,10 +66,10 @@ const DroneScene: React.FC<DroneSceneProps> = ({
         safeStartTimerRef.current = null;
       }
     } else if (isPlaying && !gameStartedRef.current) {
-      // Give a 2 second grace period before enabling collisions
+      // Give a 3 second grace period before enabling collisions (increased from 2)
       safeStartTimerRef.current = window.setTimeout(() => {
         gameStartedRef.current = true;
-      }, 2000);
+      }, 3000);
     }
     
     return () => {
@@ -87,12 +86,12 @@ const DroneScene: React.FC<DroneSceneProps> = ({
     // Scene
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x87CEEB); // Sky blue background
-    scene.fog = new THREE.Fog(0x87CEEB, 50, 160);
+    scene.fog = new THREE.Fog(0x87CEEB, 100, 300); // Increased fog distance for better visibility
     sceneRef.current = scene;
 
     // Camera
     const camera = new THREE.PerspectiveCamera(
-      75,
+      80, // Wider FOV for mobile 
       window.innerWidth / window.innerHeight,
       0.1,
       1000
@@ -109,10 +108,10 @@ const DroneScene: React.FC<DroneSceneProps> = ({
     rendererRef.current = renderer;
 
     // Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7); // Brighter ambient light
     scene.add(ambientLight);
 
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
     directionalLight.position.set(100, 100, 50);
     directionalLight.castShadow = true;
     directionalLight.shadow.mapSize.width = 2048;
@@ -126,9 +125,9 @@ const DroneScene: React.FC<DroneSceneProps> = ({
     scene.add(directionalLight);
 
     // Ground
-    const groundGeometry = new THREE.PlaneGeometry(500, 500);
+    const groundGeometry = new THREE.PlaneGeometry(1000, 1000); // Larger ground
     const groundMaterial = new THREE.MeshStandardMaterial({
-      color: 0x1a5e1a, // Grass green
+      color: 0x1a5e1a,
       roughness: 0.8,
     });
     const ground = new THREE.Mesh(groundGeometry, groundMaterial);
@@ -137,33 +136,33 @@ const DroneScene: React.FC<DroneSceneProps> = ({
     scene.add(ground);
 
     // Grid helper
-    const gridHelper = new THREE.GridHelper(500, 50, 0x888888, 0xcccccc);
+    const gridHelper = new THREE.GridHelper(1000, 100, 0x888888, 0xcccccc); // Larger grid
     scene.add(gridHelper);
 
-    // City buildings
+    // City with fewer, smaller buildings
     createCity(scene);
 
-    // Drone model (improved realistic drone)
+    // Drone model
     const drone = createImprovedDrone();
     scene.add(drone);
     droneRef.current = drone;
     
-    // Initialize drone physics with better parameters
+    // Initialize drone physics
     dronePhysicsRef.current = createDronePhysics();
     
     // Set drone position to a safer starting location with more clearance
     if (dronePhysicsRef.current) {
-      dronePhysicsRef.current.position = { x: 0, y: 20, z: 0 }; // Start higher above ground
-      drone.position.set(0, 20, 0);
+      dronePhysicsRef.current.position = { x: 0, y: 30, z: 0 }; // Start higher
+      drone.position.set(0, 30, 0);
     }
 
-    // Generate coins - ensure plenty of them
-    generateCoins(scene, 200); // Generate 200 coins
+    // Generate more coins for easier collection
+    generateCoins(scene, 300); // Increased coin count
 
-    // Generate obstacles
+    // Generate fewer obstacles
     generateObstacles(scene);
 
-    // Generate power-ups
+    // Generate more power-ups
     generatePowerUps(scene);
 
     // Handle window resize
@@ -191,7 +190,7 @@ const DroneScene: React.FC<DroneSceneProps> = ({
     };
   }, []);
 
-  // Create an improved, more realistic drone model
+  // Create an improved drone model
   const createImprovedDrone = () => {
     const droneGroup = new THREE.Group();
     
@@ -316,31 +315,31 @@ const DroneScene: React.FC<DroneSceneProps> = ({
     return droneGroup;
   };
 
-  // Create a simple city environment
+  // Create a simplified city environment with fewer buildings
   const createCity = (scene: THREE.Scene) => {
     // Building material options
     const buildingMaterials = [
-      new THREE.MeshStandardMaterial({ color: 0xc0c0c0, roughness: 0.4 }), // Silver
-      new THREE.MeshStandardMaterial({ color: 0xd0d0d0, roughness: 0.5 }), // Light Gray
-      new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.5 }), // Medium Gray
-      new THREE.MeshStandardMaterial({ color: 0xe8e8e8, roughness: 0.3 }), // Off-white
-      new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.5 }), // Dark Gray
+      new THREE.MeshStandardMaterial({ color: 0xc0c0c0, roughness: 0.4 }),
+      new THREE.MeshStandardMaterial({ color: 0xd0d0d0, roughness: 0.5 }),
+      new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.5 }),
+      new THREE.MeshStandardMaterial({ color: 0xe8e8e8, roughness: 0.3 }),
+      new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.5 }),
     ];
     
-    // Generate a grid of buildings
-    const buildingCount = 200;
-    const citySize = 180; // Larger city
-    const maxHeight = 60;
+    // Generate fewer buildings
+    const buildingCount = 80; // Reduced from 200
+    const citySize = 400; // Wider spread for a more sparse, open environment
+    const maxHeight = 40; // Lower height
     const minHeight = 10;
     
     for (let i = 0; i < buildingCount; i++) {
-      // Random position
+      // Random position with wider spread
       const x = (Math.random() - 0.5) * citySize;
       const z = (Math.random() - 0.5) * citySize;
       
-      // Random size
-      const width = 5 + Math.random() * 10;
-      const depth = 5 + Math.random() * 10;
+      // Smaller buildings for easier navigation
+      const width = 4 + Math.random() * 8;
+      const depth = 4 + Math.random() * 8;
       const height = minHeight + Math.random() * maxHeight;
       
       // Create building
@@ -365,11 +364,11 @@ const DroneScene: React.FC<DroneSceneProps> = ({
       ]);
     }
     
-    // Add some special structures like bridges
+    // Add fewer bridges
     createBridges(scene);
   };
 
-  // Add bridges to the scene
+  // Add bridges to the scene - fewer and more spaced out
   const createBridges = (scene: THREE.Scene) => {
     // Bridge material
     const bridgeMaterial = new THREE.MeshStandardMaterial({
@@ -377,16 +376,16 @@ const DroneScene: React.FC<DroneSceneProps> = ({
       roughness: 0.6
     });
     
-    // Create a few bridges at different locations
-    for (let i = 0; i < 5; i++) {
-      const x = (Math.random() - 0.5) * 150;
-      const z = (Math.random() - 0.5) * 150;
+    // Create fewer bridges
+    for (let i = 0; i < 3; i++) { // Reduced from 5
+      const x = (Math.random() - 0.5) * 300;
+      const z = (Math.random() - 0.5) * 300;
       const rotation = Math.random() * Math.PI;
       
       // Bridge base
       const baseGeometry = new THREE.BoxGeometry(40, 1, 10);
       const base = new THREE.Mesh(baseGeometry, bridgeMaterial);
-      base.position.set(x, 15 + Math.random() * 10, z);
+      base.position.set(x, 20 + Math.random() * 10, z); // Higher bridges
       base.rotation.y = rotation;
       base.castShadow = true;
       base.receiveShadow = true;
@@ -426,27 +425,27 @@ const DroneScene: React.FC<DroneSceneProps> = ({
             y: base.position.y, 
             z: base.position.z 
           },
-          radius: 20 // Larger collision area for the bridge
+          radius: 20
         }
       ]);
     }
   };
 
-  // Generate coins throughout the scene
-  const generateCoins = (scene: THREE.Scene, count = 100) => {
-    const coinGeometry = new THREE.CylinderGeometry(0.5, 0.5, 0.1, 16);
+  // Generate more coins with better visibility
+  const generateCoins = (scene: THREE.Scene, count = 300) => {
+    const coinGeometry = new THREE.CylinderGeometry(0.7, 0.7, 0.1, 16); // Larger coins
     const coinMaterial = new THREE.MeshStandardMaterial({
       color: 0xFFD700,
       metalness: 0.8,
       roughness: 0.2,
       emissive: 0xFFD700,
-      emissiveIntensity: 0.4
+      emissiveIntensity: 0.6 // Brighter glow
     });
     
     const coinCount = count;
-    const areaSize = 150; // Larger area for coins
+    const areaSize = 350; // Larger area
     const minHeight = 5;
-    const maxHeight = 60; // Higher maximum height
+    const maxHeight = 80; // Higher max height
     
     for (let i = 0; i < coinCount; i++) {
       const x = (Math.random() - 0.5) * areaSize;
@@ -455,18 +454,18 @@ const DroneScene: React.FC<DroneSceneProps> = ({
       
       const coin = new THREE.Mesh(coinGeometry, coinMaterial);
       coin.position.set(x, y, z);
-      coin.rotation.x = Math.PI / 2; // Make it flat
+      coin.rotation.x = Math.PI / 2;
       
-      // Add a glow effect to make coins more visible
+      // Add a larger glow effect
       const glowMaterial = new THREE.MeshStandardMaterial({
         color: 0xFFD700,
         transparent: true,
         opacity: 0.4,
         emissive: 0xFFD700,
-        emissiveIntensity: 0.3
+        emissiveIntensity: 0.4
       });
       const glowSphere = new THREE.Mesh(
-        new THREE.SphereGeometry(0.8, 16, 16),
+        new THREE.SphereGeometry(1.2, 16, 16), // Larger glow sphere
         glowMaterial
       );
       glowSphere.position.copy(coin.position);
@@ -479,17 +478,17 @@ const DroneScene: React.FC<DroneSceneProps> = ({
         ...prev,
         {
           position: { x, y, z },
-          radius: 0.8, // Slightly larger collision radius for easier collection
+          radius: 1.2, // Larger collision radius
           collected: false
         }
       ]);
     }
   };
 
-  // Generate obstacles (additional to buildings)
+  // Generate fewer obstacles
   const generateObstacles = (scene: THREE.Scene) => {
-    // Add floating obstacles
-    const obstacleCount = 30;
+    // Add fewer floating obstacles
+    const obstacleCount = 15; // Reduced from 30
     const obstacleGeometries = [
       new THREE.BoxGeometry(3, 3, 3),
       new THREE.SphereGeometry(2, 16, 16),
@@ -507,9 +506,10 @@ const DroneScene: React.FC<DroneSceneProps> = ({
       const geometry = obstacleGeometries[Math.floor(Math.random() * obstacleGeometries.length)];
       const obstacle = new THREE.Mesh(geometry, obstacleMaterial);
       
-      const x = (Math.random() - 0.5) * 140;
-      const y = 10 + Math.random() * 40;
-      const z = (Math.random() - 0.5) * 140;
+      // More spread out
+      const x = (Math.random() - 0.5) * 300;
+      const y = 15 + Math.random() * 40;
+      const z = (Math.random() - 0.5) * 300;
       
       obstacle.position.set(x, y, z);
       obstacle.rotation.set(
@@ -526,13 +526,13 @@ const DroneScene: React.FC<DroneSceneProps> = ({
         ...prev,
         {
           position: { x, y, z },
-          radius: 2 // Approximate radius
+          radius: 2
         }
       ]);
     }
   };
 
-  // Generate power-ups
+  // Generate more power-ups with better visibility
   const generatePowerUps = (scene: THREE.Scene) => {
     const powerUpTypes: PowerUpType[] = ['shield', 'speed', 'magnet', 'timeFreeze'];
     const powerUpColors = {
@@ -542,10 +542,10 @@ const DroneScene: React.FC<DroneSceneProps> = ({
       'timeFreeze': 0x00cc66
     };
     
-    const powerUpCount = 30; // More power-ups
-    const areaSize = 140;
+    const powerUpCount = 40; // More power-ups (up from 30)
+    const areaSize = 300;
     const minHeight = 10;
-    const maxHeight = 50;
+    const maxHeight = 70;
     
     for (let i = 0; i < powerUpCount; i++) {
       const x = (Math.random() - 0.5) * areaSize;
@@ -553,28 +553,30 @@ const DroneScene: React.FC<DroneSceneProps> = ({
       const z = (Math.random() - 0.5) * areaSize;
       
       const type = powerUpTypes[Math.floor(Math.random() * powerUpTypes.length)];
-      const powerUpGeometry = new THREE.SphereGeometry(0.75, 16, 16);
+      const powerUpGeometry = new THREE.SphereGeometry(1.0, 16, 16); // Larger power-ups
       const powerUpMaterial = new THREE.MeshStandardMaterial({
         color: powerUpColors[type],
         metalness: 0.7,
         roughness: 0.2,
         emissive: powerUpColors[type],
-        emissiveIntensity: 0.5,
+        emissiveIntensity: 0.7, // Brighter
         transparent: true,
-        opacity: 0.8
+        opacity: 0.9 // More visible
       });
       
       const powerUp = new THREE.Mesh(powerUpGeometry, powerUpMaterial);
       powerUp.position.set(x, y, z);
       
-      // Add glow effect
-      const glowMaterial = new THREE.MeshBasicMaterial({
+      // Add larger glow effect
+      const glowMaterial = new THREE.MeshStandardMaterial({
         color: powerUpColors[type],
         transparent: true,
-        opacity: 0.3
+        opacity: 0.4,
+        emissive: powerUpColors[type],
+        emissiveIntensity: 0.4
       });
       const glowSphere = new THREE.Mesh(
-        new THREE.SphereGeometry(1.2, 16, 16),
+        new THREE.SphereGeometry(1.8, 16, 16), // Larger glow
         glowMaterial
       );
       glowSphere.position.copy(powerUp.position);
@@ -587,7 +589,7 @@ const DroneScene: React.FC<DroneSceneProps> = ({
         ...prev,
         {
           position: { x, y, z },
-          radius: 1.2, // Larger collision radius
+          radius: 1.8, // Larger collision radius
           type,
           collected: false
         }
@@ -595,13 +597,13 @@ const DroneScene: React.FC<DroneSceneProps> = ({
     }
   };
 
-  // Animation loop
+  // Animation loop with improved game logic
   const animate = (time: number) => {
     if (previousTimeRef.current === undefined) {
       previousTimeRef.current = time;
     }
     
-    const deltaTime = Math.min((time - previousTimeRef.current) / 1000, 0.1); // Cap to 100ms
+    const deltaTime = Math.min((time - previousTimeRef.current) / 1000, 0.1);
     previousTimeRef.current = time;
     
     if (isPlaying && droneRef.current && dronePhysicsRef.current && cameraRef.current && rendererRef.current && sceneRef.current) {
@@ -615,7 +617,7 @@ const DroneScene: React.FC<DroneSceneProps> = ({
       
       dronePhysicsRef.current = newPhysics;
       
-      // Update drone position and rotation in the scene
+      // Update drone position and rotation
       droneRef.current.position.set(
         newPhysics.position.x,
         newPhysics.position.y,
@@ -628,8 +630,8 @@ const DroneScene: React.FC<DroneSceneProps> = ({
         newPhysics.rotation.z
       );
       
-      // Update camera to follow drone (FPV mode)
-      const cameraOffset = new THREE.Vector3(0, 1, 4); // Position slightly behind and above the drone
+      // Improved camera following (better for mobile)
+      const cameraOffset = new THREE.Vector3(0, 1.5, 5); // Closer camera for mobile
       cameraOffset.applyAxisAngle(new THREE.Vector3(0, 1, 0), newPhysics.rotation.y);
       
       cameraRef.current.position.set(
@@ -644,8 +646,8 @@ const DroneScene: React.FC<DroneSceneProps> = ({
         newPhysics.position.z
       );
       
-      // Check for collisions with obstacles only after game has fully started
-      const droneRadius = 0.7; // Approximated drone radius for collision
+      // Collision detection with larger margin
+      const droneRadius = 0.8; // Larger drone collision radius for easier gameplay
       
       if (gameStartedRef.current && powerUp !== 'shield' && checkCollision(
         dronePhysicsRef.current.position,
@@ -655,7 +657,7 @@ const DroneScene: React.FC<DroneSceneProps> = ({
         onCrash();
       }
       
-      // Check for coin collection
+      // Easier coin collection
       const collectedCoinIndices = checkCoinCollection(
         dronePhysicsRef.current.position,
         droneRadius,
@@ -664,7 +666,7 @@ const DroneScene: React.FC<DroneSceneProps> = ({
       );
       
       if (collectedCoinIndices.length > 0) {
-        // Update collected coins in state
+        // Update collected coins
         setCoinPositions(prev => {
           const newPositions = [...prev];
           collectedCoinIndices.forEach(index => {
@@ -673,18 +675,18 @@ const DroneScene: React.FC<DroneSceneProps> = ({
           return newPositions;
         });
         
-        // Update coin visibility in scene
+        // Update coin visibility
         collectedCoinIndices.forEach(index => {
           if (coinsRef.current[index]) {
             coinsRef.current[index].visible = false;
           }
         });
         
-        // Add points to score (10 points per coin)
-        onCoinCollect(collectedCoinIndices.length * 10);
+        // Add more points per coin (15 instead of 10)
+        onCoinCollect(collectedCoinIndices.length * 15);
       }
       
-      // Check for power-up collection
+      // Power-up collection with larger radius
       powerUpPositions.forEach((powerUp, index) => {
         if (!powerUp.collected) {
           const distance = Math.sqrt(
@@ -693,7 +695,8 @@ const DroneScene: React.FC<DroneSceneProps> = ({
             Math.pow(dronePhysicsRef.current!.position.z - powerUp.position.z, 2)
           );
           
-          if (distance < (droneRadius + powerUp.radius)) {
+          // Larger detection radius
+          if (distance < (droneRadius * 1.5 + powerUp.radius)) {
             // Mark power-up as collected
             setPowerUpPositions(prev => {
               const newPositions = [...prev];
@@ -701,44 +704,43 @@ const DroneScene: React.FC<DroneSceneProps> = ({
               return newPositions;
             });
             
-            // Hide power-up in scene
+            // Hide power-up
             if (powerUpsRef.current[index]) {
               powerUpsRef.current[index].visible = false;
             }
             
-            // Activate power-up
-            const duration = powerUp.type === 'magnet' ? 10 : 5; // Magnet lasts 10s, others 5s
+            // Longer duration power-ups
+            const duration = powerUp.type === 'magnet' ? 15 : 8; // Longer durations
             onPowerUpCollect(powerUp.type, duration);
           }
         }
       });
       
-      // Animate coins to rotate and bob
+      // Animate coins with more pronounced movement
       coinsRef.current.forEach((coin, index) => {
         if (!coinPositions[index]?.collected) {
-          coin.rotation.z += deltaTime * 2;
-          coin.position.y += Math.sin(time / 500) * 0.01;
+          coin.rotation.z += deltaTime * 3; // Faster rotation
+          coin.position.y += Math.sin(time / 400) * 0.02; // More noticeable bobbing
         }
       });
       
-      // Animate power-ups to float up and down and pulse
+      // Animate power-ups with more pronounced effects
       powerUpsRef.current.forEach((powerUp, index) => {
         if (!powerUpPositions[index]?.collected) {
-          powerUp.position.y += Math.sin(time / 500) * 0.015;
-          powerUp.rotation.y += deltaTime;
-          const scale = 1 + 0.1 * Math.sin(time / 300);
+          powerUp.position.y += Math.sin(time / 400) * 0.025;
+          powerUp.rotation.y += deltaTime * 1.5;
+          const scale = 1 + 0.15 * Math.sin(time / 250); // More pulsing
           powerUp.scale.set(scale, scale, scale);
         }
       });
       
-      // Animate propellers if the drone has them
+      // Animate propellers
       if (droneRef.current.children) {
         droneRef.current.children.forEach(child => {
-          // Check if this is a propeller (box geometry with small height)
           if (child instanceof THREE.Mesh && 
               child.geometry instanceof THREE.BoxGeometry && 
               child.geometry.parameters.height < 0.1) {
-            child.rotation.y += controls.throttle * deltaTime * 20;
+            child.rotation.y += controls.throttle * deltaTime * 25; // Faster rotation
           }
         });
       }
