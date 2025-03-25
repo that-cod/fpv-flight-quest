@@ -29,7 +29,7 @@ export interface DronePhysics {
 
 export const createDronePhysics = (): DronePhysics => {
   return {
-    position: { x: 0, y: 5, z: 0 },
+    position: { x: 0, y: 20, z: 0 }, // Start at a higher position (20 instead of 5)
     rotation: { x: 0, y: 0, z: 0 },
     velocity: { x: 0, y: 0, z: 0 },
     acceleration: { x: 0, y: 0, z: 0 },
@@ -139,9 +139,9 @@ export const updateDronePhysics = (
     z: position.z + newVelocity.z * deltaTime
   };
 
-  // Ensure drone doesn't go below ground
-  if (newPosition.y < 0.5) {
-    newPosition.y = 0.5;
+  // Ensure drone doesn't go below ground with a higher minimum altitude
+  if (newPosition.y < 1.5) { // Increased minimum height
+    newPosition.y = 1.5;
     newVelocity.y = Math.abs(newVelocity.y) * 0.3; // Bounce effect
   }
 

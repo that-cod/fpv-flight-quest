@@ -37,6 +37,8 @@ const DroneScene: React.FC<DroneSceneProps> = ({
   const coinsRef = useRef<THREE.Mesh[]>([]);
   const obstaclesRef = useRef<THREE.Mesh[]>([]);
   const powerUpsRef = useRef<THREE.Mesh[]>([]);
+  const gameStartedRef = useRef<boolean>(false);
+  const safeStartTimerRef = useRef<number | null>(null);
 
   const [coinPositions, setCoinPositions] = useState<Array<{
     position: { x: number; y: number; z: number };
@@ -55,6 +57,28 @@ const DroneScene: React.FC<DroneSceneProps> = ({
     type: PowerUpType;
     collected: boolean;
   }>>([]);
+
+  // Reset game started ref when game status changes
+  useEffect(() => {
+    if (!isPlaying) {
+      gameStartedRef.current = false;
+      if (safeStartTimerRef.current) {
+        clearTimeout(safeStartTimerRef.current);
+        safeStartTimerRef.current = null;
+      }
+    } else if (isPlaying && !gameStartedRef.current) {
+      // Give a 2 second grace period before enabling collisions
+      safeStartTimerRef.current = window.setTimeout(() => {
+        gameStartedRef.current = true;
+      }, 2000);
+    }
+    
+    return () => {
+      if (safeStartTimerRef.current) {
+        clearTimeout(safeStartTimerRef.current);
+      }
+    };
+  }, [isPlaying]);
 
   // Initialize the Three.js scene
   useEffect(() => {
@@ -126,6 +150,12 @@ const DroneScene: React.FC<DroneSceneProps> = ({
     
     // Initialize drone physics with better parameters
     dronePhysicsRef.current = createDronePhysics();
+    
+    // Set drone position to a safer starting location with more clearance
+    if (dronePhysicsRef.current) {
+      dronePhysicsRef.current.position = { x: 0, y: 20, z: 0 }; // Start higher above ground
+      drone.position.set(0, 20, 0);
+    }
 
     // Generate coins - ensure plenty of them
     generateCoins(scene, 200); // Generate 200 coins
@@ -614,10 +644,10 @@ const DroneScene: React.FC<DroneSceneProps> = ({
         newPhysics.position.z
       );
       
-      // Check for collisions with obstacles
+      // Check for collisions with obstacles only after game has fully started
       const droneRadius = 0.7; // Approximated drone radius for collision
       
-      if (powerUp !== 'shield' && checkCollision(
+      if (gameStartedRef.current && powerUp !== 'shield' && checkCollision(
         dronePhysicsRef.current.position,
         droneRadius,
         obstaclePositions
