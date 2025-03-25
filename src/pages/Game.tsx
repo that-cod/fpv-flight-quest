@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGameState, GameStatus } from '@/hooks/useGameState';
@@ -88,9 +89,13 @@ const Game: React.FC = () => {
   }) => {
     // Only update controls if game is still playing (prevents control after crash)
     if (state.status === 'playing') {
-      setControls(newControls);
+      // Ensure steeringLock is always provided, using current value as fallback
+      setControls({
+        ...newControls,
+        steeringLock: newControls.steeringLock !== undefined ? newControls.steeringLock : controls.steeringLock
+      });
     }
-  }, [state.status]);
+  }, [state.status, controls.steeringLock]);
 
   const handleCrash = useCallback(() => {
     // Play crash sound
