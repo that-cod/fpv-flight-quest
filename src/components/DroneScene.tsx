@@ -1,3 +1,4 @@
+
 import React, { useRef, useEffect, useState } from 'react';
 import * as THREE from 'three';
 import { DronePhysics, updateDronePhysics, checkCollision, checkCoinCollection, createDronePhysics } from '@/utils/physics';
@@ -263,8 +264,16 @@ const DroneScene: React.FC<DroneSceneProps> = ({
     // Add LED lights (small glowing spheres)
     const ledGeometry = new THREE.SphereGeometry(0.05, 8, 8);
     const ledMaterials = [
-      new THREE.MeshBasicMaterial({ color: 0xff0000, emissive: 0xff0000 }), // Red
-      new THREE.MeshBasicMaterial({ color: 0x00ff00, emissive: 0x00ff00 })  // Green
+      new THREE.MeshStandardMaterial({ 
+        color: 0xff0000, 
+        emissive: 0xff0000,
+        emissiveIntensity: 0.5
+      }), // Red
+      new THREE.MeshStandardMaterial({ 
+        color: 0x00ff00, 
+        emissive: 0x00ff00,
+        emissiveIntensity: 0.5
+      })  // Green
     ];
     
     // Add LEDs to front and back arms
