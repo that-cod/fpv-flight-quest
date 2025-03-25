@@ -18,7 +18,8 @@ const Game: React.FC = () => {
     crashDrone,
     addPoints,
     activatePowerUp,
-    returnToMenu
+    returnToMenu,
+    updateSteeringSensitivity
   } = useGameState();
 
   const [controls, setControls] = useState({
@@ -168,14 +169,21 @@ const Game: React.FC = () => {
   // Handle escape key to pause game
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Pause game with Escape key
       if (e.key === 'Escape' && state.status === 'playing') {
         pauseGame();
+      }
+      
+      // Add sensitivity adjustment with number keys 1-9
+      if (state.status === 'playing' && e.key >= '1' && e.key <= '9') {
+        const newSensitivity = parseInt(e.key) / 10;
+        updateSteeringSensitivity(newSensitivity);
       }
     };
     
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [pauseGame, state.status]);
+  }, [pauseGame, state.status, updateSteeringSensitivity]);
 
   // Show mobile controls help toast
   useEffect(() => {
@@ -198,6 +206,19 @@ const Game: React.FC = () => {
 
   // Check if the game is in an active playable state
   const isGameActive = state.status === 'playing';
+
+  // Show steering sensitivity toast on game start
+  useEffect(() => {
+    if (state.status === 'playing' && !isMobile) {
+      setTimeout(() => {
+        toast({
+          title: "Steering Controls Added",
+          description: "Use Q/R for quick turns. Press 1-9 keys to adjust sensitivity.",
+          duration: 5000,
+        });
+      }, 4000); // Show after the initial game started toast
+    }
+  }, [state.status, isMobile]);
 
   return (
     <motion.div 
@@ -308,6 +329,7 @@ const Game: React.FC = () => {
         <DroneController 
           onControlChange={handleControlChange} 
           isGameActive={isGameActive}
+          steeringSensitivity={state.steeringSensitivity}
         />
       )}
     </motion.div>

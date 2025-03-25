@@ -62,23 +62,27 @@ export const updateDronePhysics = (
   // Increased speed boost for more exciting gameplay
   const actualMaxSpeed = powerUps.speedBoost ? maxSpeed * 2.0 : maxSpeed;
 
-  // More responsive rotation for mobile
+  // Enhanced rotation calculations with more responsive yaw for Q/R steering
+  // Using a higher multiplier for yaw to make steering more immediate and responsive
   const rotationSpeed = 3.5 * deltaTime;
+  const yawMultiplier = Math.abs(controls.yaw) > 1.0 ? 2.5 : 1.5; // Faster turning for Q/R keys
+  
   const newRotation = {
     x: rotation.x + controls.pitch * rotationSpeed * 1.8,
-    y: rotation.y + controls.yaw * rotationSpeed * 1.5,
+    y: rotation.y + controls.yaw * rotationSpeed * yawMultiplier, // Enhanced yaw sensitivity
     z: rotation.z + controls.roll * rotationSpeed * 1.5
   };
 
-  // More responsive damping for smooth control on mobile
+  // Improved damping for smoother steering
+  // Less damping on yaw for more responsive steering with Q/R
   newRotation.x *= 0.9;
-  newRotation.y *= 0.92;
+  newRotation.y *= 0.88; // Reduced damping for more responsive yaw control
   newRotation.z *= 0.9;
 
   // Improved movement physics for more intuitive control
   const throttleForce = Math.max(0, controls.throttle) * maxAcceleration;
   
-  // Updated forward force calculation for more intuitive W/S controls
+  // Updated forward force calculation for correct W/S controls
   const forwardForce = -Math.sin(newRotation.x) * maxAcceleration * 1.5;
   
   // Updated direction vectors for better yaw control

@@ -1,13 +1,18 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { ChevronUp, ChevronRight, ChevronDown, ChevronLeft, Airplay } from 'lucide-react';
+import { ChevronUp, ChevronRight, ChevronDown, ChevronLeft, Airplay, RotateCcw, RotateCw } from 'lucide-react';
 
 interface DroneControllerProps {
   onControlChange: (controls: { throttle: number; pitch: number; yaw: number; roll: number }) => void;
-  isGameActive: boolean; // Add this prop to check if game is active
+  isGameActive: boolean;
+  steeringSensitivity?: number; // Added steering sensitivity prop
 }
 
-const DroneController: React.FC<DroneControllerProps> = ({ onControlChange, isGameActive }) => {
+const DroneController: React.FC<DroneControllerProps> = ({ 
+  onControlChange, 
+  isGameActive,
+  steeringSensitivity = 0.5 // Default sensitivity
+}) => {
   const [leftStick, setLeftStick] = useState({ x: 0, y: 0 });
   const [rightStick, setRightStick] = useState({ x: 0, y: 0 });
   const [keys, setKeys] = useState({
@@ -20,7 +25,9 @@ const DroneController: React.FC<DroneControllerProps> = ({ onControlChange, isGa
     KeyS: false,
     KeyA: false,
     Space: false,
-    ShiftLeft: false
+    ShiftLeft: false,
+    KeyQ: false, // Added for left steering
+    KeyR: false  // Added for right steering
   });
 
   // Use a ref to prevent creating a new function on each render
@@ -66,17 +73,22 @@ const DroneController: React.FC<DroneControllerProps> = ({ onControlChange, isGa
     let newLeftStick = { ...leftStick };
     let newRightStick = { ...rightStick };
     
-    // FIX: Reversed the controls so W moves forward and S moves backward
+    // Correctly map W/S for forward/backward
     const keyboardLeftX = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0);
-    const keyboardLeftY = (keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0); // Corrected W/S mapping
+    const keyboardLeftY = (keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0); // W is forward, S is backward
     
-    // FIX: Make left/right arrows control direction (yaw) instead of roll
+    // Make left/right arrows control direction (yaw)
     const keyboardRightX = (keys.ArrowRight ? 1 : 0) - (keys.ArrowLeft ? 1 : 0);
     const keyboardRightY = (keys.ArrowUp ? 1 : 0) - (keys.ArrowDown ? 1 : 0);
 
     // Additional vertical control for throttle using Space and Shift
     const verticalThrottle = (keys.Space ? 1 : 0) - (keys.ShiftLeft ? 1 : 0);
-
+    
+    // New steering controls with Q and R keys
+    // Apply sensitivity factor to make steering more or less responsive
+    const steeringFactor = 3.0 * (steeringSensitivity || 0.5);
+    const qrSteering = (keys.KeyR ? 1 : 0) - (keys.KeyQ ? 1 : 0);
+    
     // Update sticks if keyboard input is present
     if (keyboardLeftX !== 0 || keyboardLeftY !== 0) {
       newLeftStick = { x: keyboardLeftX, y: keyboardLeftY };
@@ -87,17 +99,17 @@ const DroneController: React.FC<DroneControllerProps> = ({ onControlChange, isGa
     }
 
     // Calculate control values from stick positions
-    // FIX: Improved control mapping for more intuitive flight
+    // Add the QR steering to the yaw control for direct control
     const controls = {
       throttle: verticalThrottle, // Space/Shift for up/down
-      pitch: newLeftStick.y,      // W/S for forward/backward (pitch)
-      yaw: newRightStick.x,       // Left/Right arrows for turning (yaw)
-      roll: newLeftStick.x        // A/D for banking left/right (roll)
+      pitch: newLeftStick.y,      // W/S for forward/backward
+      yaw: newRightStick.x + (qrSteering * steeringFactor), // Include Q/R steering with sensitivity
+      roll: newLeftStick.x        // A/D for banking left/right
     };
 
     // Use the ref to prevent dependency on onControlChange
     onControlChangeRef.current(controls);
-  }, [leftStick, rightStick, keys, isGameActive]);
+  }, [leftStick, rightStick, keys, isGameActive, steeringSensitivity]);
 
   const handleLeftStickMove = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     let clientX, clientY;
@@ -166,7 +178,7 @@ const DroneController: React.FC<DroneControllerProps> = ({ onControlChange, isGa
   return (
     <div className="fixed bottom-0 inset-x-0 z-40 p-6 pointer-events-none">
       <div className="max-w-5xl mx-auto flex justify-between items-center">
-        {/* Controls instructions - Updated instructions to match new controls */}
+        {/* Controls instructions - Updated to include Q/R */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 0.8, y: 0 }}
@@ -176,7 +188,11 @@ const DroneController: React.FC<DroneControllerProps> = ({ onControlChange, isGa
           <div className="flex items-center justify-center gap-2 mb-1">
             <Airplay size={16} /> <span>W/S: Forward/Back | A/D: Roll</span>
           </div>
-          <div>Arrows: Turn | Space/Shift: Up/Down | Mobile: Use Joysticks</div>
+          <div className="flex items-center justify-center gap-2">
+            <RotateCcw size={14} className="text-drone mr-0.5" /> 
+            <span>Q/R: Steer | Arrows: Turn | Space/Shift: Up/Down</span>
+            <RotateCw size={14} className="text-drone ml-0.5" />
+          </div>
         </motion.div>
         
         {/* Left Stick - Controls pitch and roll */}

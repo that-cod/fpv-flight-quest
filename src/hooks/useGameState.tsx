@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect } from 'react';
 import { toast } from "@/hooks/use-toast";
 
@@ -11,6 +10,7 @@ interface GameState {
   highScore: number;
   powerUp: PowerUpType;
   powerUpTimeRemaining: number;
+  steeringSensitivity: number; // Added for steering sensitivity
 }
 
 export const useGameState = () => {
@@ -20,6 +20,7 @@ export const useGameState = () => {
     highScore: 0,
     powerUp: null,
     powerUpTimeRemaining: 0,
+    steeringSensitivity: 0.5, // Default sensitivity (0.1 to 1.0 range)
   });
 
   // Load high score from localStorage on mount
@@ -27,6 +28,12 @@ export const useGameState = () => {
     const savedHighScore = localStorage.getItem('droneGameHighScore');
     if (savedHighScore) {
       setState(prev => ({ ...prev, highScore: parseInt(savedHighScore, 10) }));
+    }
+    
+    // Load steering sensitivity if saved
+    const savedSensitivity = localStorage.getItem('droneSteeringSensitivity');
+    if (savedSensitivity) {
+      setState(prev => ({ ...prev, steeringSensitivity: parseFloat(savedSensitivity) }));
     }
   }, []);
 
@@ -36,6 +43,11 @@ export const useGameState = () => {
       localStorage.setItem('droneGameHighScore', state.highScore.toString());
     }
   }, [state.highScore]);
+  
+  // Save sensitivity setting when it changes
+  useEffect(() => {
+    localStorage.setItem('droneSteeringSensitivity', state.steeringSensitivity.toString());
+  }, [state.steeringSensitivity]);
 
   // Power-up countdown effect
   useEffect(() => {
@@ -170,6 +182,22 @@ export const useGameState = () => {
       status: 'menu'
     }));
   }, []);
+  
+  // Update steering sensitivity
+  const updateSteeringSensitivity = useCallback((value: number) => {
+    // Ensure sensitivity is between 0.1 (slow) and 1.0 (fast)
+    const newSensitivity = Math.max(0.1, Math.min(1.0, value));
+    setState(prev => ({
+      ...prev,
+      steeringSensitivity: newSensitivity
+    }));
+    
+    toast({
+      title: "Steering Sensitivity Updated",
+      description: `Sensitivity set to ${Math.round(newSensitivity * 100)}%`,
+      duration: 2000,
+    });
+  }, []);
 
   return {
     state,
@@ -178,6 +206,7 @@ export const useGameState = () => {
     crashDrone,
     addPoints,
     activatePowerUp,
-    returnToMenu
+    returnToMenu,
+    updateSteeringSensitivity
   };
 };
