@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { ChevronUp, ChevronRight, ChevronDown, ChevronLeft, Airplay, RotateCcw, RotateCw } from 'lucide-react';
 
 interface DroneControllerProps {
-  onControlChange: (controls: { throttle: number; pitch: number; yaw: number; roll: number }) => void;
+  onControlChange: (controls: { throttle: number; pitch: number; yaw: number; roll: number; steeringLock?: number }) => void;
   isGameActive: boolean;
   steeringSensitivity?: number; // Added steering sensitivity prop
 }
@@ -26,9 +26,12 @@ const DroneController: React.FC<DroneControllerProps> = ({
     KeyA: false,
     Space: false,
     ShiftLeft: false,
-    KeyQ: false, // Added for left steering
-    KeyR: false  // Added for right steering
+    KeyQ: false, // Q for left steering
+    KeyE: false  // Changed to E for right steering
   });
+  
+  // Track steering lock state 
+  const [steeringLock, setSteeringLock] = useState(0); // 0 = no lock, -1 = left lock, 1 = right lock
 
   // Use a ref to prevent creating a new function on each render
   const onControlChangeRef = useRef(onControlChange);
@@ -42,6 +45,13 @@ const DroneController: React.FC<DroneControllerProps> = ({
       const key = e.code;
       if (key in keys) {
         setKeys(prev => ({ ...prev, [key]: true }));
+        
+        // Handle steering lock with Q and E keys
+        if (key === 'KeyQ') {
+          setSteeringLock(-1); // Lock steering left
+        } else if (key === 'KeyE') {
+          setSteeringLock(1);  // Lock steering right
+        }
       }
     };
 
@@ -49,6 +59,16 @@ const DroneController: React.FC<DroneControllerProps> = ({
       const key = e.code;
       if (key in keys) {
         setKeys(prev => ({ ...prev, [key]: false }));
+        
+        // Only unlock steering if the opposite key is pressed
+        if (key === 'KeyQ' && steeringLock === -1 && keys.KeyE) {
+          setSteeringLock(1); // Switch to right lock if E is still pressed
+        } else if (key === 'KeyE' && steeringLock === 1 && keys.KeyQ) {
+          setSteeringLock(-1); // Switch to left lock if Q is still pressed
+        } else if ((key === 'KeyQ' && steeringLock === -1) || (key === 'KeyE' && steeringLock === 1)) {
+          // Keep the lock if the key matches the current lock
+          // Do nothing, maintain lock
+        }
       }
     };
 
@@ -59,13 +79,13 @@ const DroneController: React.FC<DroneControllerProps> = ({
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [keys]);
+  }, [keys, steeringLock]);
 
   // Update controls based on keyboard or touch input
   useEffect(() => {
     // Only process controls if the game is active
     if (!isGameActive) {
-      onControlChangeRef.current({ throttle: 0, pitch: 0, yaw: 0, roll: 0 });
+      onControlChangeRef.current({ throttle: 0, pitch: 0, yaw: 0, roll: 0, steeringLock: 0 });
       return;
     }
 
@@ -84,10 +104,10 @@ const DroneController: React.FC<DroneControllerProps> = ({
     // Additional vertical control for throttle using Space and Shift
     const verticalThrottle = (keys.Space ? 1 : 0) - (keys.ShiftLeft ? 1 : 0);
     
-    // New steering controls with Q and R keys
+    // New steering controls with Q and E keys
     // Apply sensitivity factor to make steering more or less responsive
     const steeringFactor = 3.0 * (steeringSensitivity || 0.5);
-    const qrSteering = (keys.KeyR ? 1 : 0) - (keys.KeyQ ? 1 : 0);
+    const qeSteering = (keys.KeyE ? 1 : 0) - (keys.KeyQ ? 1 : 0); // Changed to use E instead of R
     
     // Update sticks if keyboard input is present
     if (keyboardLeftX !== 0 || keyboardLeftY !== 0) {
@@ -99,17 +119,18 @@ const DroneController: React.FC<DroneControllerProps> = ({
     }
 
     // Calculate control values from stick positions
-    // Add the QR steering to the yaw control for direct control
+    // Add the QE steering to the yaw control for direct control with the steering lock applied
     const controls = {
       throttle: verticalThrottle, // Space/Shift for up/down
       pitch: newLeftStick.y,      // W/S for forward/backward
-      yaw: newRightStick.x + (qrSteering * steeringFactor), // Include Q/R steering with sensitivity
-      roll: newLeftStick.x        // A/D for banking left/right
+      yaw: newRightStick.x + (qeSteering * steeringFactor), // Include Q/E steering with sensitivity
+      roll: newLeftStick.x,       // A/D for banking left/right
+      steeringLock: steeringLock  // Pass the steering lock state
     };
 
     // Use the ref to prevent dependency on onControlChange
     onControlChangeRef.current(controls);
-  }, [leftStick, rightStick, keys, isGameActive, steeringSensitivity]);
+  }, [leftStick, rightStick, keys, isGameActive, steeringSensitivity, steeringLock]);
 
   const handleLeftStickMove = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     let clientX, clientY;
@@ -178,7 +199,7 @@ const DroneController: React.FC<DroneControllerProps> = ({
   return (
     <div className="fixed bottom-0 inset-x-0 z-40 p-6 pointer-events-none">
       <div className="max-w-5xl mx-auto flex justify-between items-center">
-        {/* Controls instructions - Updated to include Q/R */}
+        {/* Controls instructions - Updated to include Q/E */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 0.8, y: 0 }}
@@ -190,7 +211,7 @@ const DroneController: React.FC<DroneControllerProps> = ({
           </div>
           <div className="flex items-center justify-center gap-2">
             <RotateCcw size={14} className="text-drone mr-0.5" /> 
-            <span>Q/R: Steer | Arrows: Turn | Space/Shift: Up/Down</span>
+            <span>Q/E: Steer | Arrows: Turn | Space/Shift: Up/Down</span>
             <RotateCw size={14} className="text-drone ml-0.5" />
           </div>
         </motion.div>

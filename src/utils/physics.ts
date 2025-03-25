@@ -25,6 +25,8 @@ export interface DronePhysics {
   maxSpeed: number;
   maxAcceleration: number;
   gravity: number;
+  // Added steering lock variable
+  steeringLock: number;
 }
 
 export const createDronePhysics = (): DronePhysics => {
@@ -38,12 +40,13 @@ export const createDronePhysics = (): DronePhysics => {
     maxSpeed: 60, // Increased max speed for better gameplay
     maxAcceleration: 15, // Increased acceleration for responsive controls
     gravity: 9.8,
+    steeringLock: 0, // 0 = no lock, -1 = locked left, 1 = locked right
   };
 };
 
 export const updateDronePhysics = (
   physics: DronePhysics, 
-  controls: { throttle: number; pitch: number; yaw: number; roll: number },
+  controls: { throttle: number; pitch: number; yaw: number; roll: number; steeringLock?: number },
   powerUps: { speedBoost: boolean },
   deltaTime: number
 ): DronePhysics => {
@@ -56,27 +59,42 @@ export const updateDronePhysics = (
     drag,
     maxSpeed,
     maxAcceleration,
-    gravity
+    gravity,
+    steeringLock
   } = physics;
 
   // Increased speed boost for more exciting gameplay
   const actualMaxSpeed = powerUps.speedBoost ? maxSpeed * 2.0 : maxSpeed;
 
-  // Enhanced rotation calculations with more responsive yaw for Q/R steering
-  // Using a higher multiplier for yaw to make steering more immediate and responsive
+  // Handle steering lock - apply the locked steering value if it exists
+  let effectiveYaw = controls.yaw;
+  
+  // Update steering lock if provided in controls
+  let newSteeringLock = steeringLock;
+  if (controls.steeringLock !== undefined) {
+    newSteeringLock = controls.steeringLock;
+  }
+  
+  // Apply steering lock effect if active
+  if (newSteeringLock !== 0) {
+    // Apply a constant steering effect based on the lock direction and sensitivity
+    const lockStrength = Math.abs(controls.yaw) > 1.0 ? 2.5 : 1.5;
+    effectiveYaw = newSteeringLock * lockStrength;
+  }
+
+  // Enhanced rotation calculations with locked steering
   const rotationSpeed = 3.5 * deltaTime;
-  const yawMultiplier = Math.abs(controls.yaw) > 1.0 ? 2.5 : 1.5; // Faster turning for Q/R keys
+  const yawMultiplier = Math.abs(effectiveYaw) > 1.0 ? 2.5 : 1.5; // Faster turning for Q/E keys
   
   const newRotation = {
     x: rotation.x + controls.pitch * rotationSpeed * 1.8,
-    y: rotation.y + controls.yaw * rotationSpeed * yawMultiplier, // Enhanced yaw sensitivity
+    y: rotation.y + effectiveYaw * rotationSpeed * yawMultiplier, // Use effective yaw with lock applied
     z: rotation.z + controls.roll * rotationSpeed * 1.5
   };
 
-  // Improved damping for smoother steering
-  // Less damping on yaw for more responsive steering with Q/R
+  // Improved damping for smoother steering - but we don't reduce yaw when lock is active
   newRotation.x *= 0.9;
-  newRotation.y *= 0.88; // Reduced damping for more responsive yaw control
+  // Only apply yaw damping if not locked
   newRotation.z *= 0.9;
 
   // Improved movement physics for more intuitive control
@@ -167,7 +185,8 @@ export const updateDronePhysics = (
     position: newPosition,
     rotation: newRotation,
     velocity: newVelocity,
-    acceleration: newAcceleration
+    acceleration: newAcceleration,
+    steeringLock: newSteeringLock
   };
 };
 

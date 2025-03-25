@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGameState, GameStatus } from '@/hooks/useGameState';
@@ -26,7 +25,8 @@ const Game: React.FC = () => {
     throttle: 0,
     pitch: 0,
     yaw: 0,
-    roll: 0
+    roll: 0,
+    steeringLock: 0
   });
 
   const isMobile = useIsMobile();
@@ -84,6 +84,7 @@ const Game: React.FC = () => {
     pitch: number;
     yaw: number;
     roll: number;
+    steeringLock?: number;
   }) => {
     // Only update controls if game is still playing (prevents control after crash)
     if (state.status === 'playing') {
@@ -117,7 +118,8 @@ const Game: React.FC = () => {
       throttle: 0,
       pitch: 0,
       yaw: 0,
-      roll: 0
+      roll: 0,
+      steeringLock: 0
     });
   }, [crashDrone]);
 
@@ -166,7 +168,7 @@ const Game: React.FC = () => {
     });
   }, [activatePowerUp]);
 
-  // Handle escape key to pause game
+  // Handle escape key to pause game and Q/E for steering
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Pause game with Escape key
@@ -207,13 +209,13 @@ const Game: React.FC = () => {
   // Check if the game is in an active playable state
   const isGameActive = state.status === 'playing';
 
-  // Show steering sensitivity toast on game start
+  // Show steering sensitivity toast on game start - updated for Q/E
   useEffect(() => {
     if (state.status === 'playing' && !isMobile) {
       setTimeout(() => {
         toast({
           title: "Steering Controls Added",
-          description: "Use Q/R for quick turns. Press 1-9 keys to adjust sensitivity.",
+          description: "Use Q/E for quick turns that lock direction. Press 1-9 keys to adjust sensitivity.",
           duration: 5000,
         });
       }, 4000); // Show after the initial game started toast
