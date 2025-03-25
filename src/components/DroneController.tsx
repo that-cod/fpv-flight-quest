@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { ChevronUp, ChevronRight, ChevronDown, ChevronLeft, Airplane } from 'lucide-react';
+import { ChevronUp, ChevronRight, ChevronDown, ChevronLeft, Airplay } from 'lucide-react';
 
 interface DroneControllerProps {
   onControlChange: (controls: { throttle: number; pitch: number; yaw: number; roll: number }) => void;
@@ -165,7 +164,7 @@ const DroneController: React.FC<DroneControllerProps> = ({ onControlChange }) =>
           className="absolute top-[-80px] left-0 right-0 text-center text-white text-sm bg-black/40 backdrop-blur-sm p-2 rounded-lg mx-auto max-w-xs"
         >
           <div className="flex items-center justify-center gap-2 mb-1">
-            <Airplane size={16} /> <span>WASD + Arrows: Movement</span>
+            <Airplay size={16} /> <span>WASD + Arrows: Movement</span>
           </div>
           <div>Space/Shift: Up/Down | Mobile: Use Joysticks</div>
         </motion.div>

@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGameState, GameStatus } from '@/hooks/useGameState';
@@ -7,7 +6,7 @@ import DroneController from '@/components/DroneController';
 import GameHUD from '@/components/GameHUD';
 import DroneScene from '@/components/DroneScene';
 import { toast } from "@/hooks/use-toast";
-import { Airplane } from 'lucide-react';
+import { Airplay } from 'lucide-react';
 
 const Game: React.FC = () => {
   const {
@@ -205,7 +204,7 @@ const Game: React.FC = () => {
               className="glass-panel rounded-3xl p-8 max-w-md w-full mx-6 bg-black/60"
             >
               <h2 className="text-3xl font-bold mb-2 text-center text-white flex items-center justify-center">
-                <Airplane className="mr-2" size={28} /> Drone Crashed
+                <Airplay className="mr-2" size={28} /> Drone Crashed
               </h2>
               <p className="text-gray-300 text-center mb-6">
                 Final Score: <span className="text-drone font-bold text-xl">{state.score}</span>

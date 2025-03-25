@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect, useState } from 'react';
 import * as THREE from 'three';
 import { DronePhysics, updateDronePhysics, checkCollision, checkCoinCollection, createDronePhysics } from '@/utils/physics';
@@ -420,10 +419,12 @@ const DroneScene: React.FC<DroneSceneProps> = ({
       coin.rotation.x = Math.PI / 2; // Make it flat
       
       // Add a glow effect to make coins more visible
-      const glowMaterial = new THREE.MeshBasicMaterial({
+      const glowMaterial = new THREE.MeshStandardMaterial({
         color: 0xFFD700,
         transparent: true,
-        opacity: 0.4
+        opacity: 0.4,
+        emissive: 0xFFD700,
+        emissiveIntensity: 0.3
       });
       const glowSphere = new THREE.Mesh(
         new THREE.SphereGeometry(0.8, 16, 16),
