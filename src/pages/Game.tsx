@@ -7,6 +7,7 @@ import DroneController from '@/components/DroneController';
 import GameHUD from '@/components/GameHUD';
 import DroneScene from '@/components/DroneScene';
 import { toast } from "@/hooks/use-toast";
+import { Airplane } from 'lucide-react';
 
 const Game: React.FC = () => {
   const {
@@ -30,6 +31,7 @@ const Game: React.FC = () => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const coinAudioRef = useRef<HTMLAudioElement | null>(null);
   const powerUpAudioRef = useRef<HTMLAudioElement | null>(null);
+  const backgroundMusicRef = useRef<HTMLAudioElement | null>(null);
 
   // Initialize audio elements
   useEffect(() => {
@@ -46,22 +48,32 @@ const Game: React.FC = () => {
     powerUpAudioRef.current.src = "https://assets.mixkit.co/active_storage/sfx/2020/2020-preview.mp3"; // Power-up sound
     powerUpAudioRef.current.volume = 0.4;
     
+    backgroundMusicRef.current = new Audio();
+    backgroundMusicRef.current.src = "https://assets.mixkit.co/active_storage/sfx/2427/2427-preview.mp3"; // Background music
+    backgroundMusicRef.current.volume = 0.2;
+    backgroundMusicRef.current.loop = true;
+    
     return () => {
       // Clean up audio elements
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
-      if (coinAudioRef.current) {
-        coinAudioRef.current.pause();
-        coinAudioRef.current = null;
-      }
-      if (powerUpAudioRef.current) {
-        powerUpAudioRef.current.pause();
-        powerUpAudioRef.current = null;
-      }
+      [audioRef, coinAudioRef, powerUpAudioRef, backgroundMusicRef].forEach(ref => {
+        if (ref.current) {
+          ref.current.pause();
+          ref.current = null;
+        }
+      });
     };
   }, []);
+
+  // Play or pause background music based on game state
+  useEffect(() => {
+    if (backgroundMusicRef.current) {
+      if (state.status === 'playing') {
+        backgroundMusicRef.current.play().catch(e => console.log("Audio play failed:", e));
+      } else {
+        backgroundMusicRef.current.pause();
+      }
+    }
+  }, [state.status]);
 
   const handleControlChange = useCallback((newControls: {
     throttle: number;
@@ -139,9 +151,21 @@ const Game: React.FC = () => {
     });
   }, [activatePowerUp]);
 
+  // Handle escape key to pause game
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && state.status === 'playing') {
+        pauseGame();
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [pauseGame, state.status]);
+
   return (
     <motion.div 
-      className="w-full h-screen overflow-hidden"
+      className="w-full h-screen overflow-hidden bg-gradient-to-b from-black/20 to-transparent"
       animate={screenShake ? {
         x: [0, -10, 10, -10, 10, 0],
         transition: { duration: 0.5, ease: "easeInOut" }
@@ -178,15 +202,17 @@ const Game: React.FC = () => {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-              className="glass-panel rounded-3xl p-8 max-w-md w-full mx-6"
+              className="glass-panel rounded-3xl p-8 max-w-md w-full mx-6 bg-black/60"
             >
-              <h2 className="text-3xl font-bold mb-2 text-center">Drone Crashed</h2>
-              <p className="text-gray-600 text-center mb-6">
-                Final Score: <span className="text-drone font-bold">{state.score}</span>
+              <h2 className="text-3xl font-bold mb-2 text-center text-white flex items-center justify-center">
+                <Airplane className="mr-2" size={28} /> Drone Crashed
+              </h2>
+              <p className="text-gray-300 text-center mb-6">
+                Final Score: <span className="text-drone font-bold text-xl">{state.score}</span>
               </p>
               
               <div className="flex flex-col gap-4">
-                <button onClick={startGame} className="btn-primary">
+                <button onClick={startGame} className="btn-primary bg-drone hover:bg-drone-light">
                   Try Again
                 </button>
                 <button onClick={returnToMenu} className="btn-secondary">
@@ -209,12 +235,15 @@ const Game: React.FC = () => {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-              className="glass-panel rounded-3xl p-8 max-w-md w-full mx-6"
+              className="glass-panel rounded-3xl p-8 max-w-md w-full mx-6 bg-black/60"
             >
-              <h2 className="text-3xl font-bold mb-6 text-center">Game Paused</h2>
+              <h2 className="text-3xl font-bold mb-2 text-center text-white">Game Paused</h2>
+              <p className="text-gray-300 text-center mb-6">
+                Current Score: <span className="text-drone font-bold">{state.score}</span>
+              </p>
               
               <div className="flex flex-col gap-4">
-                <button onClick={pauseGame} className="btn-primary">
+                <button onClick={pauseGame} className="btn-primary bg-drone hover:bg-drone-light">
                   Resume
                 </button>
                 <button onClick={returnToMenu} className="btn-secondary">

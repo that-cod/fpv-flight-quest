@@ -75,6 +75,25 @@ export const useGameState = () => {
       powerUp: null,
       powerUpTimeRemaining: 0
     }));
+    
+    // Show start game toast
+    const isMobile = window.innerWidth < 768;
+    if (isMobile) {
+      // This import is done dynamically to avoid circular dependencies
+      const { toast } = require('@/hooks/use-toast');
+      toast({
+        title: "Game Started!",
+        description: "Use the joysticks to control your drone.",
+        duration: 3000,
+      });
+    } else {
+      const { toast } = require('@/hooks/use-toast');
+      toast({
+        title: "Game Started!",
+        description: "WASD + Arrow Keys to control. Space/Shift for up/down.",
+        duration: 3000,
+      });
+    }
   }, []);
 
   // Pause game
@@ -90,6 +109,14 @@ export const useGameState = () => {
     setState(prev => {
       // If we have a shield power-up, use it instead of crashing
       if (prev.powerUp === 'shield') {
+        // This import is done dynamically to avoid circular dependencies
+        const { toast } = require('@/hooks/use-toast');
+        toast({
+          title: "Shield Activated!",
+          description: "Your shield protected you from the crash.",
+          duration: 3000,
+        });
+        
         return {
           ...prev,
           powerUp: null,
@@ -113,6 +140,17 @@ export const useGameState = () => {
     setState(prev => {
       const newScore = prev.score + points;
       const newHighScore = newScore > prev.highScore ? newScore : prev.highScore;
+      
+      // Check if player just beat the high score
+      if (newScore > prev.highScore && prev.score <= prev.highScore && prev.highScore > 0) {
+        // This import is done dynamically to avoid circular dependencies
+        const { toast } = require('@/hooks/use-toast');
+        toast({
+          title: "New High Score!",
+          description: `You beat your previous record of ${prev.highScore}!`,
+          duration: 3000,
+        });
+      }
       
       return {
         ...prev,

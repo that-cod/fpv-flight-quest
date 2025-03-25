@@ -35,8 +35,8 @@ export const createDronePhysics = (): DronePhysics => {
     acceleration: { x: 0, y: 0, z: 0 },
     mass: 1,
     drag: 0.15, // Increased drag for more realistic deceleration
-    maxSpeed: 30, // Increased max speed
-    maxAcceleration: 8, // Increased acceleration
+    maxSpeed: 40, // Increased max speed
+    maxAcceleration: 12, // Increased acceleration
     gravity: 9.8,
   };
 };
@@ -62,42 +62,44 @@ export const updateDronePhysics = (
   const actualMaxSpeed = powerUps.speedBoost ? maxSpeed * 1.7 : maxSpeed;
 
   // Update rotation based on controls with improved responsiveness
-  const rotationSpeed = 2.5 * deltaTime;
+  const rotationSpeed = 3.0 * deltaTime; // Faster rotation
   const newRotation = {
     // Pitch (forward/backward tilt) - now more responsive
-    x: rotation.x + controls.pitch * rotationSpeed * 1.2,
+    x: rotation.x + controls.pitch * rotationSpeed * 1.5,
     // Yaw (turning left/right)
-    y: rotation.y + controls.yaw * rotationSpeed,
+    y: rotation.y + controls.yaw * rotationSpeed * 1.2,
     // Roll (banking left/right)
-    z: rotation.z + controls.roll * rotationSpeed * 0.8
+    z: rotation.z + controls.roll * rotationSpeed * 1.2
   };
 
   // Apply damping to rotation for smoother control
-  newRotation.x *= 0.95;
-  newRotation.y *= 0.98;
-  newRotation.z *= 0.95;
+  newRotation.x *= 0.92;
+  newRotation.y *= 0.95;
+  newRotation.z *= 0.92;
 
   // Calculate forces based on controls and current rotation
   // This creates a more realistic flight model where the drone moves in the direction it's facing
   const throttleForce = controls.throttle * maxAcceleration;
   
   // Forward force based on pitch and current facing direction
-  const forwardForce = Math.cos(newRotation.x) * throttleForce;
+  const forwardForce = Math.cos(newRotation.x) * throttleForce * 1.5; // Increased forward movement
   
   // Calculate forward direction vector based on yaw
   const forwardX = Math.sin(newRotation.y) * forwardForce;
   const forwardZ = Math.cos(newRotation.y) * forwardForce;
   
   // Vertical force (lift vs gravity)
-  const verticalForce = Math.sin(newRotation.x) * throttleForce;
+  const verticalForce = Math.sin(newRotation.x) * throttleForce * 1.2; // Stronger vertical movement
   
   // Horizontal force based on roll (banking)
-  const horizontalForce = Math.sin(newRotation.z) * throttleForce * 0.4;
+  const horizontalForce = Math.sin(newRotation.z) * throttleForce * 0.6; // More responsive banking
   
-  // Calculate forces
+  // Calculate forces - add a direct vertical control component based on throttle
+  const directVerticalControl = controls.throttle > 0 ? controls.throttle * 5 : 0;
+  
   const forces = {
     x: forwardX + horizontalForce,
-    y: throttleForce * 0.8 - gravity + verticalForce, // Lift force counteracts gravity
+    y: throttleForce * 1.0 - gravity + verticalForce + directVerticalControl, // Increased lift force
     z: forwardZ
   };
 
@@ -144,7 +146,7 @@ export const updateDronePhysics = (
   }
 
   // Add world boundaries to prevent flying too far
-  const worldBoundary = 200;
+  const worldBoundary = 220; // Increased boundary
   if (Math.abs(newPosition.x) > worldBoundary) {
     newPosition.x = Math.sign(newPosition.x) * worldBoundary;
     newVelocity.x *= -0.3; // Bounce off boundary
@@ -153,6 +155,13 @@ export const updateDronePhysics = (
   if (Math.abs(newPosition.z) > worldBoundary) {
     newPosition.z = Math.sign(newPosition.z) * worldBoundary;
     newVelocity.z *= -0.3; // Bounce off boundary
+  }
+
+  // Add altitude ceiling
+  const maxAltitude = 120; // Maximum flying height
+  if (newPosition.y > maxAltitude) {
+    newPosition.y = maxAltitude;
+    newVelocity.y = Math.min(0, newVelocity.y);
   }
 
   return {
@@ -202,7 +211,7 @@ export const checkCoinCollection = (
   hasMagnet: boolean = false
 ): number[] => {
   const collectedIndices: number[] = [];
-  const magnetRadius = hasMagnet ? droneRadius * 5 : droneRadius;
+  const magnetRadius = hasMagnet ? droneRadius * 8 : droneRadius; // Increased magnet range
   
   coins.forEach((coin, index) => {
     if (coin.collected) return;
@@ -215,7 +224,7 @@ export const checkCoinCollection = (
     
     // If magnet power-up is active, pull coins towards the drone
     if (hasMagnet && distance < magnetRadius) {
-      const pullStrength = 0.2;
+      const pullStrength = 0.3; // Stronger pull
       coin.position.x += dx * pullStrength;
       coin.position.y += dy * pullStrength;
       coin.position.z += dz * pullStrength;

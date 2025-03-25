@@ -1,6 +1,7 @@
+
 import React, { useRef, useEffect, useState } from 'react';
 import * as THREE from 'three';
-import { DronePhysics, updateDronePhysics, checkCollision, checkCoinCollection } from '@/utils/physics';
+import { DronePhysics, updateDronePhysics, checkCollision, checkCoinCollection, createDronePhysics } from '@/utils/physics';
 import { PowerUpType } from '@/hooks/useGameState';
 
 interface DroneSceneProps {
@@ -61,8 +62,8 @@ const DroneScene: React.FC<DroneSceneProps> = ({
 
     // Scene
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xf0f8ff);
-    scene.fog = new THREE.Fog(0xf0f8ff, 50, 160);
+    scene.background = new THREE.Color(0x87CEEB); // Sky blue background
+    scene.fog = new THREE.Fog(0x87CEEB, 50, 160);
     sceneRef.current = scene;
 
     // Camera
@@ -79,6 +80,7 @@ const DroneScene: React.FC<DroneSceneProps> = ({
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     containerRef.current.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
@@ -102,7 +104,7 @@ const DroneScene: React.FC<DroneSceneProps> = ({
     // Ground
     const groundGeometry = new THREE.PlaneGeometry(500, 500);
     const groundMaterial = new THREE.MeshStandardMaterial({
-      color: 0xe0e0e0,
+      color: 0x1a5e1a, // Grass green
       roughness: 0.8,
     });
     const ground = new THREE.Mesh(groundGeometry, groundMaterial);
@@ -117,26 +119,16 @@ const DroneScene: React.FC<DroneSceneProps> = ({
     // City buildings
     createCity(scene);
 
-    // Drone model (simplified for this version)
-    const drone = createDrone();
+    // Drone model (improved realistic drone)
+    const drone = createImprovedDrone();
     scene.add(drone);
     droneRef.current = drone;
     
-    // Initialize drone physics
-    dronePhysicsRef.current = {
-      position: { x: 0, y: 5, z: 0 },
-      rotation: { x: 0, y: 0, z: 0 },
-      velocity: { x: 0, y: 0, z: 0 },
-      acceleration: { x: 0, y: 0, z: 0 },
-      mass: 1,
-      drag: 0.1,
-      maxSpeed: 20,
-      maxAcceleration: 5,
-      gravity: 9.8,
-    };
+    // Initialize drone physics with better parameters
+    dronePhysicsRef.current = createDronePhysics();
 
-    // Generate coins
-    generateCoins(scene);
+    // Generate coins - ensure plenty of them
+    generateCoins(scene, 200); // Generate 200 coins
 
     // Generate obstacles
     generateObstacles(scene);
@@ -169,115 +161,119 @@ const DroneScene: React.FC<DroneSceneProps> = ({
     };
   }, []);
 
-  // Create a basic drone model
-  const createDrone = () => {
+  // Create an improved, more realistic drone model
+  const createImprovedDrone = () => {
     const droneGroup = new THREE.Group();
     
-    // Drone body
-    const bodyGeometry = new THREE.BoxGeometry(1, 0.2, 1);
+    // Drone body - main frame
+    const bodyGeometry = new THREE.BoxGeometry(1, 0.15, 1);
     const bodyMaterial = new THREE.MeshStandardMaterial({
       color: 0x0EA5E9,
+      metalness: 0.5,
+      roughness: 0.3,
     });
     const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
     body.castShadow = true;
     droneGroup.add(body);
     
-    // Arms
-    const armGeometry = new THREE.BoxGeometry(0.1, 0.1, 0.8);
+    // Central hub - more cylindrical for realism
+    const hubGeometry = new THREE.CylinderGeometry(0.25, 0.25, 0.2, 8);
+    const hubMaterial = new THREE.MeshStandardMaterial({
+      color: 0x222222,
+      metalness: 0.7,
+      roughness: 0.2,
+    });
+    const hub = new THREE.Mesh(hubGeometry, hubMaterial);
+    hub.position.y = 0.05;
+    hub.castShadow = true;
+    droneGroup.add(hub);
+    
+    // Arms - using cylindrical shapes for more realistic drone arms
+    const armGeometry = new THREE.CylinderGeometry(0.05, 0.05, 0.8, 8);
     const armMaterial = new THREE.MeshStandardMaterial({
-      color: 0xffffff,
+      color: 0xE5E5E5,
+      metalness: 0.5,
+      roughness: 0.5,
     });
     
-    // Front-left arm
-    const frontLeftArm = new THREE.Mesh(armGeometry, armMaterial);
-    frontLeftArm.position.set(-0.4, 0, -0.4);
-    frontLeftArm.castShadow = true;
-    droneGroup.add(frontLeftArm);
+    // Four arms extending diagonally from the center
+    const armPositions = [
+      { x: -0.5, z: -0.5, rotation: Math.PI / 4 },
+      { x: 0.5, z: -0.5, rotation: -Math.PI / 4 },
+      { x: -0.5, z: 0.5, rotation: -Math.PI / 4 },
+      { x: 0.5, z: 0.5, rotation: Math.PI / 4 }
+    ];
     
-    // Front-right arm
-    const frontRightArm = new THREE.Mesh(armGeometry, armMaterial);
-    frontRightArm.position.set(0.4, 0, -0.4);
-    frontRightArm.castShadow = true;
-    droneGroup.add(frontRightArm);
+    armPositions.forEach((pos) => {
+      const arm = new THREE.Mesh(armGeometry, armMaterial);
+      arm.position.set(pos.x, 0, pos.z);
+      arm.rotation.y = pos.rotation;
+      arm.rotation.z = Math.PI / 2;
+      arm.castShadow = true;
+      droneGroup.add(arm);
+    });
     
-    // Back-left arm
-    const backLeftArm = new THREE.Mesh(armGeometry, armMaterial);
-    backLeftArm.position.set(-0.4, 0, 0.4);
-    backLeftArm.castShadow = true;
-    droneGroup.add(backLeftArm);
-    
-    // Back-right arm
-    const backRightArm = new THREE.Mesh(armGeometry, armMaterial);
-    backRightArm.position.set(0.4, 0, 0.4);
-    backRightArm.castShadow = true;
-    droneGroup.add(backRightArm);
-    
-    // Motors and propellers
-    const motorGeometry = new THREE.CylinderGeometry(0.1, 0.1, 0.1, 16);
+    // Motors
+    const motorGeometry = new THREE.CylinderGeometry(0.12, 0.12, 0.1, 16);
     const motorMaterial = new THREE.MeshStandardMaterial({
       color: 0x333333,
+      metalness: 0.8,
+      roughness: 0.2,
     });
     
-    const propellerGeometry = new THREE.BoxGeometry(0.5, 0.02, 0.05);
+    // Propellers - larger and more visible
+    const propellerGeometry = new THREE.BoxGeometry(0.6, 0.03, 0.08);
     const propellerMaterial = new THREE.MeshStandardMaterial({
       color: 0x888888,
+      metalness: 0.3,
+      roughness: 0.7,
     });
     
-    // Front-left motor and propeller
-    const frontLeftMotor = new THREE.Mesh(motorGeometry, motorMaterial);
-    frontLeftMotor.position.set(-0.4, 0.05, -0.4);
-    frontLeftMotor.castShadow = true;
-    droneGroup.add(frontLeftMotor);
+    // Add motors and propellers at each arm end
+    armPositions.forEach((pos, index) => {
+      const motor = new THREE.Mesh(motorGeometry, motorMaterial);
+      motor.position.set(pos.x * 1.2, 0.1, pos.z * 1.2);
+      motor.castShadow = true;
+      droneGroup.add(motor);
+      
+      // Create two perpendicular propeller blades for each motor
+      for (let i = 0; i < 2; i++) {
+        const propeller = new THREE.Mesh(propellerGeometry, propellerMaterial);
+        propeller.position.set(pos.x * 1.2, 0.15, pos.z * 1.2);
+        propeller.rotation.y = (i * Math.PI / 2) + (index % 2 ? 0 : Math.PI / 4);
+        propeller.castShadow = true;
+        droneGroup.add(propeller);
+      }
+    });
     
-    const frontLeftPropeller = new THREE.Mesh(propellerGeometry, propellerMaterial);
-    frontLeftPropeller.position.set(-0.4, 0.1, -0.4);
-    frontLeftPropeller.castShadow = true;
-    droneGroup.add(frontLeftPropeller);
-    
-    // Front-right motor and propeller
-    const frontRightMotor = new THREE.Mesh(motorGeometry, motorMaterial);
-    frontRightMotor.position.set(0.4, 0.05, -0.4);
-    frontRightMotor.castShadow = true;
-    droneGroup.add(frontRightMotor);
-    
-    const frontRightPropeller = new THREE.Mesh(propellerGeometry, propellerMaterial);
-    frontRightPropeller.position.set(0.4, 0.1, -0.4);
-    frontRightPropeller.rotation.y = Math.PI / 4;
-    frontRightPropeller.castShadow = true;
-    droneGroup.add(frontRightPropeller);
-    
-    // Back-left motor and propeller
-    const backLeftMotor = new THREE.Mesh(motorGeometry, motorMaterial);
-    backLeftMotor.position.set(-0.4, 0.05, 0.4);
-    backLeftMotor.castShadow = true;
-    droneGroup.add(backLeftMotor);
-    
-    const backLeftPropeller = new THREE.Mesh(propellerGeometry, propellerMaterial);
-    backLeftPropeller.position.set(-0.4, 0.1, 0.4);
-    backLeftPropeller.rotation.y = Math.PI / 4;
-    backLeftPropeller.castShadow = true;
-    droneGroup.add(backLeftPropeller);
-    
-    // Back-right motor and propeller
-    const backRightMotor = new THREE.Mesh(motorGeometry, motorMaterial);
-    backRightMotor.position.set(0.4, 0.05, 0.4);
-    backRightMotor.castShadow = true;
-    droneGroup.add(backRightMotor);
-    
-    const backRightPropeller = new THREE.Mesh(propellerGeometry, propellerMaterial);
-    backRightPropeller.position.set(0.4, 0.1, 0.4);
-    backRightPropeller.castShadow = true;
-    droneGroup.add(backRightPropeller);
-    
-    // Camera (for FPV view)
-    const cameraGeometry = new THREE.BoxGeometry(0.2, 0.2, 0.2);
+    // Add dome for FPV camera
+    const cameraGeometry = new THREE.SphereGeometry(0.15, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2);
     const cameraMaterial = new THREE.MeshStandardMaterial({
-      color: 0x222222,
+      color: 0x111111,
+      metalness: 0.9,
+      roughness: 0.1,
+      transparent: true,
+      opacity: 0.7
     });
     const droneCamera = new THREE.Mesh(cameraGeometry, cameraMaterial);
-    droneCamera.position.set(0, 0, -0.5);
+    droneCamera.position.set(0, 0.05, -0.5);
+    droneCamera.rotation.x = -Math.PI / 2;
     droneCamera.castShadow = true;
     droneGroup.add(droneCamera);
+    
+    // Add LED lights (small glowing spheres)
+    const ledGeometry = new THREE.SphereGeometry(0.05, 8, 8);
+    const ledMaterials = [
+      new THREE.MeshBasicMaterial({ color: 0xff0000, emissive: 0xff0000 }), // Red
+      new THREE.MeshBasicMaterial({ color: 0x00ff00, emissive: 0x00ff00 })  // Green
+    ];
+    
+    // Add LEDs to front and back arms
+    armPositions.forEach((pos, index) => {
+      const led = new THREE.Mesh(ledGeometry, ledMaterials[index % 2]);
+      led.position.set(pos.x * 1.3, 0.05, pos.z * 1.3);
+      droneGroup.add(led);
+    });
     
     return droneGroup;
   };
@@ -295,7 +291,7 @@ const DroneScene: React.FC<DroneSceneProps> = ({
     
     // Generate a grid of buildings
     const buildingCount = 200;
-    const citySize = 150;
+    const citySize = 180; // Larger city
     const maxHeight = 60;
     const minHeight = 10;
     
@@ -330,10 +326,76 @@ const DroneScene: React.FC<DroneSceneProps> = ({
         }
       ]);
     }
+    
+    // Add some special structures like bridges
+    createBridges(scene);
+  };
+
+  // Add bridges to the scene
+  const createBridges = (scene: THREE.Scene) => {
+    // Bridge material
+    const bridgeMaterial = new THREE.MeshStandardMaterial({
+      color: 0x444444,
+      roughness: 0.6
+    });
+    
+    // Create a few bridges at different locations
+    for (let i = 0; i < 5; i++) {
+      const x = (Math.random() - 0.5) * 150;
+      const z = (Math.random() - 0.5) * 150;
+      const rotation = Math.random() * Math.PI;
+      
+      // Bridge base
+      const baseGeometry = new THREE.BoxGeometry(40, 1, 10);
+      const base = new THREE.Mesh(baseGeometry, bridgeMaterial);
+      base.position.set(x, 15 + Math.random() * 10, z);
+      base.rotation.y = rotation;
+      base.castShadow = true;
+      base.receiveShadow = true;
+      scene.add(base);
+      
+      // Bridge supports
+      for (let j = -1; j <= 1; j += 2) {
+        const supportGeometry = new THREE.BoxGeometry(1, 30, 10);
+        const support = new THREE.Mesh(supportGeometry, bridgeMaterial);
+        support.position.set(x + (j * 18), base.position.y - 15, z);
+        support.rotation.y = rotation;
+        support.castShadow = true;
+        scene.add(support);
+        
+        // Add to obstacles
+        obstaclesRef.current.push(support);
+        setObstaclePositions(prev => [
+          ...prev,
+          {
+            position: { 
+              x: support.position.x, 
+              y: support.position.y, 
+              z: support.position.z 
+            },
+            radius: 5
+          }
+        ]);
+      }
+      
+      // Add bridge to obstacles
+      obstaclesRef.current.push(base);
+      setObstaclePositions(prev => [
+        ...prev,
+        {
+          position: { 
+            x: base.position.x, 
+            y: base.position.y, 
+            z: base.position.z 
+          },
+          radius: 20 // Larger collision area for the bridge
+        }
+      ]);
+    }
   };
 
   // Generate coins throughout the scene
-  const generateCoins = (scene: THREE.Scene) => {
+  const generateCoins = (scene: THREE.Scene, count = 100) => {
     const coinGeometry = new THREE.CylinderGeometry(0.5, 0.5, 0.1, 16);
     const coinMaterial = new THREE.MeshStandardMaterial({
       color: 0xFFD700,
@@ -343,10 +405,10 @@ const DroneScene: React.FC<DroneSceneProps> = ({
       emissiveIntensity: 0.4
     });
     
-    const coinCount = 100;
-    const areaSize = 120;
+    const coinCount = count;
+    const areaSize = 150; // Larger area for coins
     const minHeight = 5;
-    const maxHeight = 40;
+    const maxHeight = 60; // Higher maximum height
     
     for (let i = 0; i < coinCount; i++) {
       const x = (Math.random() - 0.5) * areaSize;
@@ -357,6 +419,19 @@ const DroneScene: React.FC<DroneSceneProps> = ({
       coin.position.set(x, y, z);
       coin.rotation.x = Math.PI / 2; // Make it flat
       
+      // Add a glow effect to make coins more visible
+      const glowMaterial = new THREE.MeshBasicMaterial({
+        color: 0xFFD700,
+        transparent: true,
+        opacity: 0.4
+      });
+      const glowSphere = new THREE.Mesh(
+        new THREE.SphereGeometry(0.8, 16, 16),
+        glowMaterial
+      );
+      glowSphere.position.copy(coin.position);
+      scene.add(glowSphere);
+      
       scene.add(coin);
       coinsRef.current.push(coin);
       
@@ -364,7 +439,7 @@ const DroneScene: React.FC<DroneSceneProps> = ({
         ...prev,
         {
           position: { x, y, z },
-          radius: 0.75, // Slightly larger collision radius for easier collection
+          radius: 0.8, // Slightly larger collision radius for easier collection
           collected: false
         }
       ]);
@@ -373,7 +448,48 @@ const DroneScene: React.FC<DroneSceneProps> = ({
 
   // Generate obstacles (additional to buildings)
   const generateObstacles = (scene: THREE.Scene) => {
-    // Nothing to add for this initial version - buildings are the main obstacles
+    // Add floating obstacles
+    const obstacleCount = 30;
+    const obstacleGeometries = [
+      new THREE.BoxGeometry(3, 3, 3),
+      new THREE.SphereGeometry(2, 16, 16),
+      new THREE.TetrahedronGeometry(2),
+      new THREE.CylinderGeometry(0, 2, 4, 8)
+    ];
+    
+    const obstacleMaterial = new THREE.MeshStandardMaterial({
+      color: 0xff4040,
+      roughness: 0.7,
+      metalness: 0.2
+    });
+    
+    for (let i = 0; i < obstacleCount; i++) {
+      const geometry = obstacleGeometries[Math.floor(Math.random() * obstacleGeometries.length)];
+      const obstacle = new THREE.Mesh(geometry, obstacleMaterial);
+      
+      const x = (Math.random() - 0.5) * 140;
+      const y = 10 + Math.random() * 40;
+      const z = (Math.random() - 0.5) * 140;
+      
+      obstacle.position.set(x, y, z);
+      obstacle.rotation.set(
+        Math.random() * Math.PI,
+        Math.random() * Math.PI,
+        Math.random() * Math.PI
+      );
+      
+      obstacle.castShadow = true;
+      scene.add(obstacle);
+      
+      obstaclesRef.current.push(obstacle);
+      setObstaclePositions(prev => [
+        ...prev,
+        {
+          position: { x, y, z },
+          radius: 2 // Approximate radius
+        }
+      ]);
+    }
   };
 
   // Generate power-ups
@@ -386,8 +502,8 @@ const DroneScene: React.FC<DroneSceneProps> = ({
       'timeFreeze': 0x00cc66
     };
     
-    const powerUpCount = 20;
-    const areaSize = 100;
+    const powerUpCount = 30; // More power-ups
+    const areaSize = 140;
     const minHeight = 10;
     const maxHeight = 50;
     
@@ -400,16 +516,29 @@ const DroneScene: React.FC<DroneSceneProps> = ({
       const powerUpGeometry = new THREE.SphereGeometry(0.75, 16, 16);
       const powerUpMaterial = new THREE.MeshStandardMaterial({
         color: powerUpColors[type],
-        metalness: 0.5,
+        metalness: 0.7,
         roughness: 0.2,
         emissive: powerUpColors[type],
-        emissiveIntensity: 0.3,
+        emissiveIntensity: 0.5,
         transparent: true,
         opacity: 0.8
       });
       
       const powerUp = new THREE.Mesh(powerUpGeometry, powerUpMaterial);
       powerUp.position.set(x, y, z);
+      
+      // Add glow effect
+      const glowMaterial = new THREE.MeshBasicMaterial({
+        color: powerUpColors[type],
+        transparent: true,
+        opacity: 0.3
+      });
+      const glowSphere = new THREE.Mesh(
+        new THREE.SphereGeometry(1.2, 16, 16),
+        glowMaterial
+      );
+      glowSphere.position.copy(powerUp.position);
+      scene.add(glowSphere);
       
       scene.add(powerUp);
       powerUpsRef.current.push(powerUp);
@@ -418,7 +547,7 @@ const DroneScene: React.FC<DroneSceneProps> = ({
         ...prev,
         {
           position: { x, y, z },
-          radius: 1.0, // Slightly larger collision radius
+          radius: 1.2, // Larger collision radius
           type,
           collected: false
         }
@@ -490,7 +619,8 @@ const DroneScene: React.FC<DroneSceneProps> = ({
       const collectedCoinIndices = checkCoinCollection(
         dronePhysicsRef.current.position,
         droneRadius,
-        coinPositions
+        coinPositions,
+        powerUp === 'magnet'
       );
       
       if (collectedCoinIndices.length > 0) {
@@ -543,20 +673,35 @@ const DroneScene: React.FC<DroneSceneProps> = ({
         }
       });
       
-      // Animate coins to rotate
+      // Animate coins to rotate and bob
       coinsRef.current.forEach((coin, index) => {
         if (!coinPositions[index]?.collected) {
           coin.rotation.z += deltaTime * 2;
+          coin.position.y += Math.sin(time / 500) * 0.01;
         }
       });
       
-      // Animate power-ups to float up and down
+      // Animate power-ups to float up and down and pulse
       powerUpsRef.current.forEach((powerUp, index) => {
         if (!powerUpPositions[index]?.collected) {
-          powerUp.position.y += Math.sin(time / 500) * 0.01;
+          powerUp.position.y += Math.sin(time / 500) * 0.015;
           powerUp.rotation.y += deltaTime;
+          const scale = 1 + 0.1 * Math.sin(time / 300);
+          powerUp.scale.set(scale, scale, scale);
         }
       });
+      
+      // Animate propellers if the drone has them
+      if (droneRef.current.children) {
+        droneRef.current.children.forEach(child => {
+          // Check if this is a propeller (box geometry with small height)
+          if (child instanceof THREE.Mesh && 
+              child.geometry instanceof THREE.BoxGeometry && 
+              child.geometry.parameters.height < 0.1) {
+            child.rotation.y += controls.throttle * deltaTime * 20;
+          }
+        });
+      }
       
       // Render scene
       rendererRef.current.render(sceneRef.current, cameraRef.current);
