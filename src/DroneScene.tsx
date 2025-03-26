@@ -1,3 +1,4 @@
+
 import React, { useRef, useEffect, useState } from 'react';
 import * as THREE from 'three';
 import { DronePhysics, updateDronePhysics, checkCollision, checkCoinCollection, createDronePhysics } from '@/utils/physics';
@@ -812,3 +813,18 @@ const DroneScene: React.FC<DroneSceneProps> = ({
     
     requestRef.current = requestAnimationFrame(animate);
   };
+
+  // Start animation loop
+  useEffect(() => {
+    requestRef.current = requestAnimationFrame(animate);
+    return () => {
+      if (requestRef.current) {
+        cancelAnimationFrame(requestRef.current);
+      }
+    };
+  }, [isPlaying, controls, powerUp]);
+
+  return <div ref={containerRef} className="fixed inset-0 z-0" />;
+};
+
+export default DroneScene;
