@@ -1,4 +1,3 @@
-
 export interface DronePhysics {
   position: {
     x: number;
@@ -25,20 +24,19 @@ export interface DronePhysics {
   maxSpeed: number;
   maxAcceleration: number;
   gravity: number;
-  // Added steering lock variable
   steeringLock: number;
 }
 
 export const createDronePhysics = (): DronePhysics => {
   return {
-    position: { x: 0, y: 30, z: 0 }, // Start at a higher position for better visibility
+    position: { x: 0, y: 30, z: 0 },
     rotation: { x: 0, y: 0, z: 0 },
     velocity: { x: 0, y: 0, z: 0 },
     acceleration: { x: 0, y: 0, z: 0 },
     mass: 1,
-    drag: 0.2, // Increased drag for better mobile control
-    maxSpeed: 60, // Increased max speed for better gameplay
-    maxAcceleration: 15, // Increased acceleration for responsive controls
+    drag: 0.2,
+    maxSpeed: 60,
+    maxAcceleration: 15,
     gravity: 9.8,
     steeringLock: 0, // 0 = no lock, -1 = locked left, 1 = locked right
   };
@@ -66,7 +64,7 @@ export const updateDronePhysics = (
   // Increased speed boost for more exciting gameplay
   const actualMaxSpeed = powerUps.speedBoost ? maxSpeed * 2.0 : maxSpeed;
 
-  // Handle steering lock - apply the locked steering value if it exists
+  // Handle steering lock with improved locking mechanism
   let effectiveYaw = controls.yaw;
   
   // Update steering lock if provided in controls
@@ -75,43 +73,64 @@ export const updateDronePhysics = (
     newSteeringLock = controls.steeringLock;
   }
   
-  // Apply steering lock effect if active
+  // Apply improved steering lock effect with smoother response
   if (newSteeringLock !== 0) {
-    // Apply a constant steering effect based on the lock direction and sensitivity
-    const lockStrength = Math.abs(controls.yaw) > 1.0 ? 2.5 : 1.5;
-    effectiveYaw = newSteeringLock * lockStrength;
+    // Base strength on the absolute yaw to detect if it's from Q/E or arrow keys
+    const isQESteer = Math.abs(controls.yaw) > 2.0;
+    
+    // Apply a constant steering effect with smooth transition
+    // Adjust strength based on the input source (Q/E vs arrows)
+    const baseStrength = isQESteer ? 2.2 : 1.2;
+    
+    // Apply steering with smoother response
+    effectiveYaw = newSteeringLock * baseStrength;
+    
+    // Add slight banking effect to make turns more realistic
+    rotation.z = newSteeringLock * 0.15;
   }
 
-  // Enhanced rotation calculations with locked steering
+  // Enhanced rotation calculations for more realistic flight
   const rotationSpeed = 3.5 * deltaTime;
-  const yawMultiplier = Math.abs(effectiveYaw) > 1.0 ? 2.5 : 1.5; // Faster turning for Q/E keys
+  const yawMultiplier = Math.abs(effectiveYaw) > 2.0 ? 2.2 : 1.2; // Smoother turning for Q/E
   
   const newRotation = {
     x: rotation.x + controls.pitch * rotationSpeed * 1.8,
-    y: rotation.y + effectiveYaw * rotationSpeed * yawMultiplier, // Use effective yaw with lock applied
+    y: rotation.y + effectiveYaw * rotationSpeed * yawMultiplier,
     z: rotation.z + controls.roll * rotationSpeed * 1.5
   };
 
   // Improved damping for smoother steering - but we don't reduce yaw when lock is active
-  newRotation.x *= 0.9;
-  // Only apply yaw damping if not locked
-  newRotation.z *= 0.9;
+  newRotation.x *= 0.92; // Slightly improved damping
+  if (newSteeringLock === 0) {
+    // Only apply yaw damping if not locked
+    newRotation.y *= 0.95; // Smoother damping for yaw
+  }
+  // Only apply roll damping if not in a turn
+  if (Math.abs(newSteeringLock) < 0.1) {
+    newRotation.z *= 0.92;
+  }
 
-  // Improved movement physics for more intuitive control
+  // Improved movement physics for more realistic flight
   const throttleForce = Math.max(0, controls.throttle) * maxAcceleration;
   
-  // Updated forward force calculation for correct W/S controls
-  const forwardForce = -Math.sin(newRotation.x) * maxAcceleration * 1.5;
+  // Forward force calculation for improved control
+  const forwardForce = -Math.sin(newRotation.x) * maxAcceleration * 1.6;
   
-  // Updated direction vectors for better yaw control
+  // Updated direction vectors with improved steering response
   const forwardX = Math.sin(newRotation.y) * forwardForce;
   const forwardZ = Math.cos(newRotation.y) * forwardForce;
   
-  // Improved vertical control
+  // Enhanced vertical control with smoother response
   const directVerticalControl = controls.throttle * maxAcceleration * 1.5;
   
-  // Better banking physics
-  const horizontalForce = Math.sin(newRotation.z) * maxAcceleration * 0.8;
+  // Improved banking physics with better turning
+  let horizontalForce = Math.sin(newRotation.z) * maxAcceleration * 0.9;
+  
+  // Add a slight horizontal force in the direction of the turn for more responsive steering
+  if (newSteeringLock !== 0) {
+    const turnAssist = newSteeringLock * 2.0 * Math.abs(forwardForce) * 0.1;
+    horizontalForce += turnAssist;
+  }
   
   const forces = {
     x: forwardX + horizontalForce,
@@ -134,7 +153,7 @@ export const updateDronePhysics = (
     z: (velocity.z + newAcceleration.z * deltaTime) * dragFactor
   };
 
-  // Apply speed limits
+  // Apply speed limits with improved physics
   const speed = Math.sqrt(
     newVelocity.x * newVelocity.x +
     newVelocity.y * newVelocity.y +

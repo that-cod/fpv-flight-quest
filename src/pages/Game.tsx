@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGameState, GameStatus } from '@/hooks/useGameState';
@@ -38,24 +37,24 @@ const Game: React.FC = () => {
   const backgroundMusicRef = useRef<HTMLAudioElement | null>(null);
   const hasShownControlsToast = useRef<boolean>(false);
 
-  // Initialize audio elements
+  // Initialize audio elements with improved sounds
   useEffect(() => {
-    // Create audio elements
+    // Create audio elements with smoother sounds
     audioRef.current = new Audio();
-    audioRef.current.src = "https://assets.mixkit.co/active_storage/sfx/212/212-preview.mp3"; // Crash sound
-    audioRef.current.volume = 0.5;
+    audioRef.current.src = "https://assets.mixkit.co/active_storage/sfx/3187/3187-preview.mp3"; // Smoother crash sound
+    audioRef.current.volume = 0.4;
     
     coinAudioRef.current = new Audio();
-    coinAudioRef.current.src = "https://assets.mixkit.co/active_storage/sfx/270/270-preview.mp3"; // Coin collection sound
+    coinAudioRef.current.src = "https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3"; // Softer coin collection sound
     coinAudioRef.current.volume = 0.3;
     
     powerUpAudioRef.current = new Audio();
-    powerUpAudioRef.current.src = "https://assets.mixkit.co/active_storage/sfx/2020/2020-preview.mp3"; // Power-up sound
+    powerUpAudioRef.current.src = "https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3"; // Improved power-up sound
     powerUpAudioRef.current.volume = 0.4;
     
     backgroundMusicRef.current = new Audio();
-    backgroundMusicRef.current.src = "https://assets.mixkit.co/active_storage/sfx/2427/2427-preview.mp3"; // Background music
-    backgroundMusicRef.current.volume = 0.2;
+    backgroundMusicRef.current.src = "https://assets.mixkit.co/active_storage/sfx/1138/1138-preview.mp3"; // More immersive background music
+    backgroundMusicRef.current.volume = 0.15; // Lower volume for better experience
     backgroundMusicRef.current.loop = true;
     
     return () => {
@@ -214,13 +213,13 @@ const Game: React.FC = () => {
   // Check if the game is in an active playable state
   const isGameActive = state.status === 'playing';
 
-  // Show steering sensitivity toast on game start - updated for Q/E
+  // Show steering sensitivity toast on game start - improved description for Q/E
   useEffect(() => {
     if (state.status === 'playing' && !isMobile) {
       setTimeout(() => {
         toast({
-          title: "Steering Controls Added",
-          description: "Use Q/E for quick turns that lock direction. Press 1-9 keys to adjust sensitivity.",
+          title: "Steering Controls",
+          description: "Use Q/E to lock steering direction. Press again to switch direction. Use 1-9 keys to adjust sensitivity.",
           duration: 5000,
         });
       }, 4000); // Show after the initial game started toast

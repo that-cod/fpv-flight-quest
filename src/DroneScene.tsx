@@ -182,25 +182,37 @@ const DroneScene: React.FC<DroneSceneProps> = ({
     };
   }, []);
 
-  // Create an improved drone model - removed shadow casting
+  // Create an improved drone model with better structure
   const createImprovedDrone = () => {
     const droneGroup = new THREE.Group();
     
-    // Drone body - main frame - removed shadow casting
-    const bodyGeometry = new THREE.BoxGeometry(1, 0.15, 1);
+    // Drone body - improved design with carbon fiber look
+    const bodyGeometry = new THREE.BoxGeometry(1.2, 0.15, 1.2);
     const bodyMaterial = new THREE.MeshStandardMaterial({
-      color: 0x0EA5E9,
-      metalness: 0.5,
-      roughness: 0.3,
+      color: 0x222222,
+      metalness: 0.6,
+      roughness: 0.4,
     });
     const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-    // Removed castShadow
     droneGroup.add(body);
     
-    // Central hub - more cylindrical for realism
-    const hubGeometry = new THREE.CylinderGeometry(0.25, 0.25, 0.2, 8);
+    // Add colored accent plate on top
+    const accentGeometry = new THREE.BoxGeometry(1.0, 0.02, 1.0);
+    const accentMaterial = new THREE.MeshStandardMaterial({
+      color: 0x0EA5E9,
+      metalness: 0.7,
+      roughness: 0.2,
+      emissive: 0x0EA5E9,
+      emissiveIntensity: 0.2
+    });
+    const accentPlate = new THREE.Mesh(accentGeometry, accentMaterial);
+    accentPlate.position.y = 0.09;
+    droneGroup.add(accentPlate);
+    
+    // Central hub - more refined with electronics look
+    const hubGeometry = new THREE.CylinderGeometry(0.3, 0.3, 0.2, 8);
     const hubMaterial = new THREE.MeshStandardMaterial({
-      color: 0x222222,
+      color: 0x333333,
       metalness: 0.7,
       roughness: 0.2,
     });
@@ -208,20 +220,20 @@ const DroneScene: React.FC<DroneSceneProps> = ({
     hub.position.y = 0.05;
     droneGroup.add(hub);
     
-    // Arms - using cylindrical shapes for more realistic drone arms
-    const armGeometry = new THREE.CylinderGeometry(0.05, 0.05, 0.8, 8);
+    // More realistic arms with carbon fiber look
+    const armGeometry = new THREE.CylinderGeometry(0.06, 0.05, 0.9, 8);
     const armMaterial = new THREE.MeshStandardMaterial({
-      color: 0xE5E5E5,
-      metalness: 0.5,
-      roughness: 0.5,
+      color: 0x444444,
+      metalness: 0.6,
+      roughness: 0.3,
     });
     
     // Four arms extending diagonally from the center
     const armPositions = [
-      { x: -0.5, z: -0.5, rotation: Math.PI / 4 },
-      { x: 0.5, z: -0.5, rotation: -Math.PI / 4 },
-      { x: -0.5, z: 0.5, rotation: -Math.PI / 4 },
-      { x: 0.5, z: 0.5, rotation: Math.PI / 4 }
+      { x: -0.6, z: -0.6, rotation: Math.PI / 4 },
+      { x: 0.6, z: -0.6, rotation: -Math.PI / 4 },
+      { x: -0.6, z: 0.6, rotation: -Math.PI / 4 },
+      { x: 0.6, z: 0.6, rotation: Math.PI / 4 }
     ];
     
     armPositions.forEach((pos) => {
@@ -232,41 +244,63 @@ const DroneScene: React.FC<DroneSceneProps> = ({
       droneGroup.add(arm);
     });
     
-    // Motors
-    const motorGeometry = new THREE.CylinderGeometry(0.12, 0.12, 0.1, 16);
+    // Motors - more detailed with cooling fins
+    const motorGeometry = new THREE.CylinderGeometry(0.14, 0.12, 0.12, 16);
     const motorMaterial = new THREE.MeshStandardMaterial({
-      color: 0x333333,
-      metalness: 0.8,
+      color: 0x111111,
+      metalness: 0.9,
       roughness: 0.2,
     });
     
-    // Propellers - larger and more visible
-    const propellerGeometry = new THREE.BoxGeometry(0.6, 0.03, 0.08);
+    // Improved propellers - more visible and realistic
+    const propellerGeometry = new THREE.BoxGeometry(0.7, 0.02, 0.08);
     const propellerMaterial = new THREE.MeshStandardMaterial({
-      color: 0x888888,
-      metalness: 0.3,
-      roughness: 0.7,
+      color: 0x999999,
+      metalness: 0.5,
+      roughness: 0.6,
     });
     
     // Add motors and propellers at each arm end
     armPositions.forEach((pos, index) => {
+      // Motor housing with cooling fins
       const motor = new THREE.Mesh(motorGeometry, motorMaterial);
       motor.position.set(pos.x * 1.2, 0.1, pos.z * 1.2);
       droneGroup.add(motor);
       
+      // Add cooling fins around motors
+      const finGeometry = new THREE.BoxGeometry(0.04, 0.1, 0.04);
+      const finMaterial = new THREE.MeshStandardMaterial({
+        color: 0x777777,
+        metalness: 0.7,
+        roughness: 0.3,
+      });
+      
+      for (let f = 0; f < 8; f++) {
+        const fin = new THREE.Mesh(finGeometry, finMaterial);
+        const angle = (f / 8) * Math.PI * 2;
+        const radius = 0.13;
+        fin.position.set(
+          pos.x * 1.2 + Math.cos(angle) * radius,
+          0.1,
+          pos.z * 1.2 + Math.sin(angle) * radius
+        );
+        fin.rotation.y = angle;
+        droneGroup.add(fin);
+      }
+      
       // Create two perpendicular propeller blades for each motor
       for (let i = 0; i < 2; i++) {
         const propeller = new THREE.Mesh(propellerGeometry, propellerMaterial);
-        propeller.position.set(pos.x * 1.2, 0.15, pos.z * 1.2);
+        propeller.position.set(pos.x * 1.2, 0.16, pos.z * 1.2);
         propeller.rotation.y = (i * Math.PI / 2) + (index % 2 ? 0 : Math.PI / 4);
         droneGroup.add(propeller);
       }
     });
     
-    // Add dome for FPV camera
-    const cameraGeometry = new THREE.SphereGeometry(0.15, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2);
+    // Improved camera dome for FPV
+    const cameraGeometry = new THREE.SphereGeometry(0.18, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2);
     const cameraMaterial = new THREE.MeshStandardMaterial({
-      color: 0x111111,
+      color: 0x000000,
       metalness: 0.9,
       roughness: 0.1,
       transparent: true,
@@ -277,27 +311,70 @@ const DroneScene: React.FC<DroneSceneProps> = ({
     droneCamera.rotation.x = -Math.PI / 2;
     droneGroup.add(droneCamera);
     
-    // Add LED lights (small glowing spheres)
-    const ledGeometry = new THREE.SphereGeometry(0.05, 8, 8);
+    // Lens reflection effect
+    const lensGeometry = new THREE.CircleGeometry(0.08, 16);
+    const lensMaterial = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      emissive: 0xffffff,
+      emissiveIntensity: 0.6,
+      transparent: true,
+      opacity: 0.8
+    });
+    const lens = new THREE.Mesh(lensGeometry, lensMaterial);
+    lens.position.set(0, 0.06, -0.5);
+    lens.rotation.x = -Math.PI / 2;
+    droneGroup.add(lens);
+    
+    // Enhanced LED lights with brighter glow
+    const ledGeometry = new THREE.SphereGeometry(0.06, 8, 8);
     const ledMaterials = [
       new THREE.MeshStandardMaterial({ 
-        color: 0xff0000, 
-        emissive: 0xff0000,
-        emissiveIntensity: 0.5
+        color: 0xff2200, 
+        emissive: 0xff2200,
+        emissiveIntensity: 0.7
       }), // Red
       new THREE.MeshStandardMaterial({ 
-        color: 0x00ff00, 
-        emissive: 0x00ff00,
-        emissiveIntensity: 0.5
+        color: 0x22ff00, 
+        emissive: 0x22ff00,
+        emissiveIntensity: 0.7
       })  // Green
     ];
     
-    // Add LEDs to front and back arms
+    // Add improved LEDs to each arm
     armPositions.forEach((pos, index) => {
       const led = new THREE.Mesh(ledGeometry, ledMaterials[index % 2]);
       led.position.set(pos.x * 1.3, 0.05, pos.z * 1.3);
       droneGroup.add(led);
+      
+      // Add LED light effect
+      const glowGeometry = new THREE.SphereGeometry(0.08, 8, 8);
+      const glowMaterial = new THREE.MeshBasicMaterial({
+        color: ledMaterials[index % 2].color,
+        transparent: true,
+        opacity: 0.4
+      });
+      const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+      glow.position.copy(led.position);
+      droneGroup.add(glow);
     });
+    
+    // Add antennas
+    const antennaGeometry = new THREE.CylinderGeometry(0.01, 0.01, 0.3, 8);
+    const antennaMaterial = new THREE.MeshStandardMaterial({
+      color: 0x111111,
+      metalness: 0.5,
+      roughness: 0.5
+    });
+    
+    const antenna1 = new THREE.Mesh(antennaGeometry, antennaMaterial);
+    antenna1.position.set(0.2, 0.2, -0.3);
+    antenna1.rotation.x = -Math.PI / 6;
+    droneGroup.add(antenna1);
+    
+    const antenna2 = new THREE.Mesh(antennaGeometry, antennaMaterial);
+    antenna2.position.set(-0.2, 0.2, -0.3);
+    antenna2.rotation.x = -Math.PI / 6;
+    droneGroup.add(antenna2);
     
     return droneGroup;
   };
@@ -735,18 +812,3 @@ const DroneScene: React.FC<DroneSceneProps> = ({
     
     requestRef.current = requestAnimationFrame(animate);
   };
-
-  // Start animation loop
-  useEffect(() => {
-    requestRef.current = requestAnimationFrame(animate);
-    return () => {
-      if (requestRef.current) {
-        cancelAnimationFrame(requestRef.current);
-      }
-    };
-  }, [isPlaying, controls, powerUp]);
-
-  return <div ref={containerRef} className="fixed inset-0 z-0" />;
-};
-
-export default DroneScene;
