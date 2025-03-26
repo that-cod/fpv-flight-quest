@@ -1,3 +1,4 @@
+
 export interface DronePhysics {
   position: {
     x: number;
@@ -111,7 +112,8 @@ export const updateDronePhysics = (
   }
 
   // Improved movement physics for more realistic flight
-  const throttleForce = Math.max(0, controls.throttle) * maxAcceleration;
+  // Enhanced vertical control for mobile - more responsive 
+  const throttleForce = Math.max(0, controls.throttle) * maxAcceleration * 1.2;
   
   // Forward force calculation for improved control
   const forwardForce = -Math.sin(newRotation.x) * maxAcceleration * 1.6;
@@ -121,7 +123,8 @@ export const updateDronePhysics = (
   const forwardZ = Math.cos(newRotation.y) * forwardForce;
   
   // Enhanced vertical control with smoother response
-  const directVerticalControl = controls.throttle * maxAcceleration * 1.5;
+  // Make vertical movement more responsive
+  const directVerticalControl = controls.throttle * maxAcceleration * 1.8;
   
   // Improved banking physics with better turning
   let horizontalForce = Math.sin(newRotation.z) * maxAcceleration * 0.9;
@@ -225,7 +228,7 @@ export const checkCollision = (
     
     const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
     // Slightly larger margin for easier gameplay
-    const minDistance = droneRadius + obstacle.radius * 0.9;
+    const minDistance = droneRadius + obstacle.radius * 0.85; // Reduced from 0.9 for more forgiving collisions
     
     if (distance < minDistance) {
       return true;
@@ -248,7 +251,7 @@ export const checkCoinCollection = (
 ): number[] => {
   const collectedIndices: number[] = [];
   // Much larger collection radius for mobile-friendliness
-  const baseRadius = droneRadius * 1.5; 
+  const baseRadius = droneRadius * 2.0; // Increased from 1.5 for better mobile experience
   const magnetRadius = hasMagnet ? baseRadius * 12 : baseRadius;
   
   coins.forEach((coin, index) => {
@@ -262,14 +265,14 @@ export const checkCoinCollection = (
     
     // Much stronger magnet pull
     if (hasMagnet && distance < magnetRadius) {
-      const pullStrength = 0.5;
+      const pullStrength = 0.6; // Increased from 0.5 for better mobile experience
       coin.position.x += dx * pullStrength;
       coin.position.y += dy * pullStrength;
       coin.position.z += dz * pullStrength;
     }
     
     // Larger collection radius for easier gameplay
-    if (distance < (baseRadius + coin.radius * 1.5)) {
+    if (distance < (baseRadius + coin.radius * 1.7)) { // Increased from 1.5 for better mobile experience
       collectedIndices.push(index);
     }
   });

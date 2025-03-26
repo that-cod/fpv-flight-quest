@@ -1,6 +1,8 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { ChevronUp, ChevronRight, ChevronDown, ChevronLeft, Airplay, RotateCcw, RotateCw } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface DroneControllerProps {
   onControlChange: (controls: { throttle: number; pitch: number; yaw: number; roll: number; steeringLock?: number }) => void;
@@ -29,6 +31,10 @@ const DroneController: React.FC<DroneControllerProps> = ({
     KeyQ: false, // Q for left steering
     KeyE: false  // E for right steering
   });
+  
+  // Mobile-specific state for vertical control
+  const [verticalControl, setVerticalControl] = useState(0);
+  const isMobile = useIsMobile();
   
   // Track steering lock state 
   const [steeringLock, setSteeringLock] = useState(0); // 0 = no lock, -1 = left lock, 1 = right lock
@@ -74,14 +80,18 @@ const DroneController: React.FC<DroneControllerProps> = ({
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
+    if (!isMobile) {
+      window.addEventListener('keydown', handleKeyDown);
+      window.addEventListener('keyup', handleKeyUp);
+    }
 
     return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
+      if (!isMobile) {
+        window.removeEventListener('keydown', handleKeyDown);
+        window.removeEventListener('keyup', handleKeyUp);
+      }
     };
-  }, [keys, activeSteeringKey]);
+  }, [keys, activeSteeringKey, isMobile]);
 
   // Update controls based on keyboard or touch input
   useEffect(() => {
@@ -104,7 +114,7 @@ const DroneController: React.FC<DroneControllerProps> = ({
     const keyboardRightY = (keys.ArrowUp ? 1 : 0) - (keys.ArrowDown ? 1 : 0);
 
     // Additional vertical control for throttle using Space and Shift
-    const verticalThrottle = (keys.Space ? 1 : 0) - (keys.ShiftLeft ? 1 : 0);
+    const keyboardVerticalThrottle = (keys.Space ? 1 : 0) - (keys.ShiftLeft ? 1 : 0);
     
     // Apply sensitivity factor to make steering more or less responsive
     const steeringFactor = 3.0 * (steeringSensitivity || 0.5);
@@ -124,17 +134,19 @@ const DroneController: React.FC<DroneControllerProps> = ({
 
     // Calculate control values from stick positions
     // Add the QE steering to the yaw control for direct control with the steering lock applied
+    const throttleValue = isMobile ? verticalControl : keyboardVerticalThrottle;
+    
     const controls = {
-      throttle: verticalThrottle, // Space/Shift for up/down
-      pitch: newLeftStick.y,      // W/S for forward/backward
+      throttle: throttleValue, // Use mobile vertical control or Space/Shift for up/down
+      pitch: newLeftStick.y,   // W/S for forward/backward
       yaw: newRightStick.x + (qeSteering * steeringFactor), // Include Q/E steering with sensitivity
-      roll: newLeftStick.x,       // A/D for banking left/right
+      roll: newLeftStick.x,    // A/D for banking left/right
       steeringLock: steeringLock  // Pass the steering lock state
     };
 
     // Use the ref to prevent dependency on onControlChange
     onControlChangeRef.current(controls);
-  }, [leftStick, rightStick, keys, isGameActive, steeringSensitivity, steeringLock, activeSteeringKey]);
+  }, [leftStick, rightStick, keys, isGameActive, steeringSensitivity, steeringLock, activeSteeringKey, verticalControl, isMobile]);
 
   const handleLeftStickMove = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     let clientX, clientY;
@@ -200,25 +212,53 @@ const DroneController: React.FC<DroneControllerProps> = ({
     setRightStick({ x: 0, y: 0 });
   }, []);
 
+  // Handle throttle buttons for mobile
+  const handleThrottleUp = useCallback(() => {
+    setVerticalControl(1);
+  }, []);
+
+  const handleThrottleDown = useCallback(() => {
+    setVerticalControl(-1);
+  }, []);
+
+  const handleThrottleRelease = useCallback(() => {
+    setVerticalControl(0);
+  }, []);
+
   return (
     <div className="fixed bottom-0 inset-x-0 z-40 p-6 pointer-events-none">
       <div className="max-w-5xl mx-auto flex justify-between items-center">
         {/* Controls instructions - Updated for clarity */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 0.8, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="absolute top-[-80px] left-0 right-0 text-center text-white text-sm bg-black/40 backdrop-blur-sm p-2 rounded-lg mx-auto max-w-xs"
-        >
-          <div className="flex items-center justify-center gap-2 mb-1">
-            <Airplay size={16} /> <span>W/S: Forward/Back | A/D: Roll</span>
-          </div>
-          <div className="flex items-center justify-center gap-2">
-            <RotateCcw size={14} className="text-drone mr-0.5" /> 
-            <span>Q/E: Steer & Lock | Arrows: Turn | Space/Shift: Up/Down</span>
-            <RotateCw size={14} className="text-drone ml-0.5" />
-          </div>
-        </motion.div>
+        {!isMobile && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 0.8, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="absolute top-[-80px] left-0 right-0 text-center text-white text-sm bg-black/40 backdrop-blur-sm p-2 rounded-lg mx-auto max-w-xs"
+          >
+            <div className="flex items-center justify-center gap-2 mb-1">
+              <Airplay size={16} /> <span>W/S: Forward/Back | A/D: Roll</span>
+            </div>
+            <div className="flex items-center justify-center gap-2">
+              <RotateCcw size={14} className="text-drone mr-0.5" /> 
+              <span>Q/E: Steer & Lock | Arrows: Turn | Space/Shift: Up/Down</span>
+              <RotateCw size={14} className="text-drone ml-0.5" />
+            </div>
+          </motion.div>
+        )}
+        
+        {isMobile && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 0.8, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="absolute top-[-80px] left-0 right-0 text-center text-white text-sm bg-black/40 backdrop-blur-sm p-2 rounded-lg mx-auto max-w-xs"
+          >
+            <div className="flex items-center justify-center gap-2">
+              <span>Left: Movement | Right: Direction | Buttons: Up/Down</span>
+            </div>
+          </motion.div>
+        )}
         
         {/* Left Stick - Controls pitch and roll */}
         <motion.div 
@@ -274,9 +314,39 @@ const DroneController: React.FC<DroneControllerProps> = ({
             L
           </motion.div>
           <div className="absolute -top-6 left-0 right-0 text-center text-white/90 text-xs">
-            Forward/Back & Roll
+            {isMobile ? "Move" : "Forward/Back & Roll"}
           </div>
         </motion.div>
+
+        {/* Throttle controls for mobile */}
+        {isMobile && (
+          <div className="pointer-events-auto flex flex-col gap-4">
+            <motion.button
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="w-14 h-14 rounded-full bg-drone flex items-center justify-center shadow-lg"
+              onTouchStart={handleThrottleUp}
+              onTouchEnd={handleThrottleRelease}
+              onMouseDown={handleThrottleUp}
+              onMouseUp={handleThrottleRelease}
+              onMouseLeave={handleThrottleRelease}
+            >
+              <ChevronUp size={30} className="text-white" />
+            </motion.button>
+            <motion.button
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="w-14 h-14 rounded-full bg-drone flex items-center justify-center shadow-lg"
+              onTouchStart={handleThrottleDown}
+              onTouchEnd={handleThrottleRelease}
+              onMouseDown={handleThrottleDown}
+              onMouseUp={handleThrottleRelease}
+              onMouseLeave={handleThrottleRelease}
+            >
+              <ChevronDown size={30} className="text-white" />
+            </motion.button>
+          </div>
+        )}
 
         {/* Right Stick - Controls yaw */}
         <motion.div 

@@ -1,7 +1,9 @@
+
 import React, { useRef, useEffect, useState } from 'react';
 import * as THREE from 'three';
 import { DronePhysics, updateDronePhysics, checkCollision, checkCoinCollection, createDronePhysics } from '@/utils/physics';
 import { PowerUpType } from '@/hooks/useGameState';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface DroneSceneProps {
   isPlaying: boolean;
@@ -10,6 +12,7 @@ interface DroneSceneProps {
     pitch: number;
     yaw: number;
     roll: number;
+    steeringLock?: number;
   };
   powerUp: PowerUpType;
   onCrash: () => void;
@@ -38,6 +41,7 @@ const DroneScene: React.FC<DroneSceneProps> = ({
   const powerUpsRef = useRef<THREE.Mesh[]>([]);
   const gameStartedRef = useRef<boolean>(false);
   const safeStartTimerRef = useRef<number | null>(null);
+  const isMobile = useIsMobile();
 
   const [coinPositions, setCoinPositions] = useState<Array<{
     position: { x: number; y: number; z: number };
@@ -86,12 +90,16 @@ const DroneScene: React.FC<DroneSceneProps> = ({
     // Scene
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x87CEEB); // Sky blue background
-    scene.fog = new THREE.Fog(0x87CEEB, 100, 300); // Increased fog distance for better visibility
+    
+    // Use reduced fog and simplified scene for mobile
+    const fogDistance = isMobile ? 200 : 300;
+    scene.fog = new THREE.Fog(0x87CEEB, 100, fogDistance);
     sceneRef.current = scene;
 
-    // Camera
+    // Camera - wider FOV for mobile
+    const fov = isMobile ? 85 : 80;
     const camera = new THREE.PerspectiveCamera(
-      80, // Wider FOV for mobile 
+      fov,
       window.innerWidth / window.innerHeight,
       0.1,
       1000
@@ -99,50 +107,46 @@ const DroneScene: React.FC<DroneSceneProps> = ({
     camera.position.set(0, 5, 10);
     cameraRef.current = camera;
 
-    // Renderer
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    // Renderer - further optimize for mobile
+    const pixelRatio = isMobile ? Math.min(window.devicePixelRatio, 2) : window.devicePixelRatio;
+    const renderer = new THREE.WebGLRenderer({ 
+      antialias: !isMobile, // No antialiasing on mobile for performance
+      powerPreference: 'high-performance' 
+    });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.setPixelRatio(pixelRatio);
+    renderer.shadowMap.enabled = false; // Disable shadows for performance
     containerRef.current.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
-    // Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7); // Brighter ambient light
+    // Lighting - Simplified lighting for performance
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.9); // Increased ambient light to compensate for no shadows
     scene.add(ambientLight);
 
     const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
     directionalLight.position.set(100, 100, 50);
-    directionalLight.castShadow = true;
-    directionalLight.shadow.mapSize.width = 2048;
-    directionalLight.shadow.mapSize.height = 2048;
-    directionalLight.shadow.camera.near = 0.5;
-    directionalLight.shadow.camera.far = 500;
-    directionalLight.shadow.camera.left = -100;
-    directionalLight.shadow.camera.right = 100;
-    directionalLight.shadow.camera.top = 100;
-    directionalLight.shadow.camera.bottom = -100;
     scene.add(directionalLight);
 
-    // Ground
-    const groundGeometry = new THREE.PlaneGeometry(1000, 1000); // Larger ground
+    // Ground - simplified material for mobile
+    const groundGeometry = new THREE.PlaneGeometry(1000, 1000);
     const groundMaterial = new THREE.MeshStandardMaterial({
       color: 0x1a5e1a,
       roughness: 0.8,
     });
     const ground = new THREE.Mesh(groundGeometry, groundMaterial);
     ground.rotation.x = -Math.PI / 2;
-    ground.receiveShadow = true;
     scene.add(ground);
 
-    // Grid helper
-    const gridHelper = new THREE.GridHelper(1000, 100, 0x888888, 0xcccccc); // Larger grid
-    scene.add(gridHelper);
+    // Grid helper - omit on mobile for performance
+    if (!isMobile) {
+      const gridHelper = new THREE.GridHelper(1000, 100, 0x888888, 0xcccccc);
+      scene.add(gridHelper);
+    }
 
-    // City with fewer, smaller buildings
+    // Create city with adjustments for mobile
     createCity(scene);
 
-    // Drone model
+    // Create drone model with adjustments for mobile
     const drone = createImprovedDrone();
     scene.add(drone);
     droneRef.current = drone;
@@ -156,13 +160,14 @@ const DroneScene: React.FC<DroneSceneProps> = ({
       drone.position.set(0, 30, 0);
     }
 
-    // Generate more coins for easier collection
-    generateCoins(scene, 300); // Increased coin count
+    // Generate more coins with adjustments for mobile
+    const coinCount = isMobile ? 200 : 300; // Fewer coins on mobile for performance
+    generateCoins(scene, coinCount);
 
     // Generate fewer obstacles
     generateObstacles(scene);
 
-    // Generate more power-ups
+    // Generate power-ups with adjustments for mobile
     generatePowerUps(scene);
 
     // Handle window resize
@@ -188,49 +193,63 @@ const DroneScene: React.FC<DroneSceneProps> = ({
         cancelAnimationFrame(requestRef.current);
       }
     };
-  }, []);
+  }, [isMobile]);
 
-  // Create an improved drone model
+  // Create an improved drone model with better structure and mobile optimization
   const createImprovedDrone = () => {
     const droneGroup = new THREE.Group();
     
-    // Drone body - main frame
-    const bodyGeometry = new THREE.BoxGeometry(1, 0.15, 1);
+    // Use less detailed geometries on mobile
+    const segmentCount = isMobile ? 8 : 16;
+    
+    // Drone body - improved design with carbon fiber look
+    const bodyGeometry = new THREE.BoxGeometry(1.2, 0.15, 1.2);
     const bodyMaterial = new THREE.MeshStandardMaterial({
-      color: 0x0EA5E9,
-      metalness: 0.5,
-      roughness: 0.3,
+      color: 0x222222,
+      metalness: 0.6,
+      roughness: 0.4,
     });
     const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-    body.castShadow = true;
     droneGroup.add(body);
     
-    // Central hub - more cylindrical for realism
-    const hubGeometry = new THREE.CylinderGeometry(0.25, 0.25, 0.2, 8);
+    // Add colored accent plate on top
+    const accentGeometry = new THREE.BoxGeometry(1.0, 0.02, 1.0);
+    const accentMaterial = new THREE.MeshStandardMaterial({
+      color: 0x0EA5E9,
+      metalness: 0.7,
+      roughness: 0.2,
+      emissive: 0x0EA5E9,
+      emissiveIntensity: 0.2
+    });
+    const accentPlate = new THREE.Mesh(accentGeometry, accentMaterial);
+    accentPlate.position.y = 0.09;
+    droneGroup.add(accentPlate);
+    
+    // Central hub - more refined with electronics look
+    const hubGeometry = new THREE.CylinderGeometry(0.3, 0.3, 0.2, segmentCount);
     const hubMaterial = new THREE.MeshStandardMaterial({
-      color: 0x222222,
+      color: 0x333333,
       metalness: 0.7,
       roughness: 0.2,
     });
     const hub = new THREE.Mesh(hubGeometry, hubMaterial);
     hub.position.y = 0.05;
-    hub.castShadow = true;
     droneGroup.add(hub);
     
-    // Arms - using cylindrical shapes for more realistic drone arms
-    const armGeometry = new THREE.CylinderGeometry(0.05, 0.05, 0.8, 8);
+    // More realistic arms with carbon fiber look
+    const armGeometry = new THREE.CylinderGeometry(0.06, 0.05, 0.9, segmentCount);
     const armMaterial = new THREE.MeshStandardMaterial({
-      color: 0xE5E5E5,
-      metalness: 0.5,
-      roughness: 0.5,
+      color: 0x444444,
+      metalness: 0.6,
+      roughness: 0.3,
     });
     
     // Four arms extending diagonally from the center
     const armPositions = [
-      { x: -0.5, z: -0.5, rotation: Math.PI / 4 },
-      { x: 0.5, z: -0.5, rotation: -Math.PI / 4 },
-      { x: -0.5, z: 0.5, rotation: -Math.PI / 4 },
-      { x: 0.5, z: 0.5, rotation: Math.PI / 4 }
+      { x: -0.6, z: -0.6, rotation: Math.PI / 4 },
+      { x: 0.6, z: -0.6, rotation: -Math.PI / 4 },
+      { x: -0.6, z: 0.6, rotation: -Math.PI / 4 },
+      { x: 0.6, z: 0.6, rotation: Math.PI / 4 }
     ];
     
     armPositions.forEach((pos) => {
@@ -238,47 +257,69 @@ const DroneScene: React.FC<DroneSceneProps> = ({
       arm.position.set(pos.x, 0, pos.z);
       arm.rotation.y = pos.rotation;
       arm.rotation.z = Math.PI / 2;
-      arm.castShadow = true;
       droneGroup.add(arm);
     });
     
-    // Motors
-    const motorGeometry = new THREE.CylinderGeometry(0.12, 0.12, 0.1, 16);
+    // Motors - more detailed with cooling fins
+    const motorGeometry = new THREE.CylinderGeometry(0.14, 0.12, 0.12, segmentCount);
     const motorMaterial = new THREE.MeshStandardMaterial({
-      color: 0x333333,
-      metalness: 0.8,
+      color: 0x111111,
+      metalness: 0.9,
       roughness: 0.2,
     });
     
-    // Propellers - larger and more visible
-    const propellerGeometry = new THREE.BoxGeometry(0.6, 0.03, 0.08);
+    // Improved propellers - more visible and realistic
+    const propellerGeometry = new THREE.BoxGeometry(0.7, 0.02, 0.08);
     const propellerMaterial = new THREE.MeshStandardMaterial({
-      color: 0x888888,
-      metalness: 0.3,
-      roughness: 0.7,
+      color: 0x999999,
+      metalness: 0.5,
+      roughness: 0.6,
     });
     
     // Add motors and propellers at each arm end
     armPositions.forEach((pos, index) => {
+      // Motor housing with cooling fins
       const motor = new THREE.Mesh(motorGeometry, motorMaterial);
       motor.position.set(pos.x * 1.2, 0.1, pos.z * 1.2);
-      motor.castShadow = true;
       droneGroup.add(motor);
+      
+      // Skip cooling fins on mobile to improve performance
+      if (!isMobile) {
+        // Add cooling fins around motors
+        const finGeometry = new THREE.BoxGeometry(0.04, 0.1, 0.04);
+        const finMaterial = new THREE.MeshStandardMaterial({
+          color: 0x777777,
+          metalness: 0.7,
+          roughness: 0.3,
+        });
+        
+        for (let f = 0; f < 8; f++) {
+          const fin = new THREE.Mesh(finGeometry, finMaterial);
+          const angle = (f / 8) * Math.PI * 2;
+          const radius = 0.13;
+          fin.position.set(
+            pos.x * 1.2 + Math.cos(angle) * radius,
+            0.1,
+            pos.z * 1.2 + Math.sin(angle) * radius
+          );
+          fin.rotation.y = angle;
+          droneGroup.add(fin);
+        }
+      }
       
       // Create two perpendicular propeller blades for each motor
       for (let i = 0; i < 2; i++) {
         const propeller = new THREE.Mesh(propellerGeometry, propellerMaterial);
-        propeller.position.set(pos.x * 1.2, 0.15, pos.z * 1.2);
+        propeller.position.set(pos.x * 1.2, 0.16, pos.z * 1.2);
         propeller.rotation.y = (i * Math.PI / 2) + (index % 2 ? 0 : Math.PI / 4);
-        propeller.castShadow = true;
         droneGroup.add(propeller);
       }
     });
     
-    // Add dome for FPV camera
-    const cameraGeometry = new THREE.SphereGeometry(0.15, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2);
+    // Improved camera dome for FPV
+    const cameraGeometry = new THREE.SphereGeometry(0.18, segmentCount, segmentCount, 0, Math.PI * 2, 0, Math.PI / 2);
     const cameraMaterial = new THREE.MeshStandardMaterial({
-      color: 0x111111,
+      color: 0x000000,
       metalness: 0.9,
       roughness: 0.1,
       transparent: true,
@@ -287,35 +328,86 @@ const DroneScene: React.FC<DroneSceneProps> = ({
     const droneCamera = new THREE.Mesh(cameraGeometry, cameraMaterial);
     droneCamera.position.set(0, 0.05, -0.5);
     droneCamera.rotation.x = -Math.PI / 2;
-    droneCamera.castShadow = true;
     droneGroup.add(droneCamera);
     
-    // Add LED lights (small glowing spheres)
-    const ledGeometry = new THREE.SphereGeometry(0.05, 8, 8);
+    // Skip lens reflection effect on mobile
+    if (!isMobile) {
+      // Lens reflection effect
+      const lensGeometry = new THREE.CircleGeometry(0.08, segmentCount);
+      const lensMaterial = new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        emissive: 0xffffff,
+        emissiveIntensity: 0.6,
+        transparent: true,
+        opacity: 0.8
+      });
+      const lens = new THREE.Mesh(lensGeometry, lensMaterial);
+      lens.position.set(0, 0.06, -0.5);
+      lens.rotation.x = -Math.PI / 2;
+      droneGroup.add(lens);
+    }
+    
+    // Enhanced LED lights with brighter glow
+    const ledGeometry = new THREE.SphereGeometry(0.06, 8, 8);
     const ledMaterials = [
       new THREE.MeshStandardMaterial({ 
-        color: 0xff0000, 
-        emissive: 0xff0000,
-        emissiveIntensity: 0.5
+        color: 0xff2200, 
+        emissive: 0xff2200,
+        emissiveIntensity: 0.7
       }), // Red
       new THREE.MeshStandardMaterial({ 
-        color: 0x00ff00, 
-        emissive: 0x00ff00,
-        emissiveIntensity: 0.5
+        color: 0x22ff00, 
+        emissive: 0x22ff00,
+        emissiveIntensity: 0.7
       })  // Green
     ];
     
-    // Add LEDs to front and back arms
+    // Add improved LEDs to each arm
     armPositions.forEach((pos, index) => {
       const led = new THREE.Mesh(ledGeometry, ledMaterials[index % 2]);
       led.position.set(pos.x * 1.3, 0.05, pos.z * 1.3);
       droneGroup.add(led);
+      
+      // Skip glow effect on mobile
+      if (!isMobile) {
+        // Add LED light effect
+        const glowGeometry = new THREE.SphereGeometry(0.08, 8, 8);
+        const glowMaterial = new THREE.MeshBasicMaterial({
+          color: ledMaterials[index % 2].color,
+          transparent: true,
+          opacity: 0.4
+        });
+        const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+        glow.position.copy(led.position);
+        droneGroup.add(glow);
+      }
     });
+    
+    // Skip antennas on mobile
+    if (!isMobile) {
+      // Add antennas
+      const antennaGeometry = new THREE.CylinderGeometry(0.01, 0.01, 0.3, 8);
+      const antennaMaterial = new THREE.MeshStandardMaterial({
+        color: 0x111111,
+        metalness: 0.5,
+        roughness: 0.5
+      });
+      
+      const antenna1 = new THREE.Mesh(antennaGeometry, antennaMaterial);
+      antenna1.position.set(0.2, 0.2, -0.3);
+      antenna1.rotation.x = -Math.PI / 6;
+      droneGroup.add(antenna1);
+      
+      const antenna2 = new THREE.Mesh(antennaGeometry, antennaMaterial);
+      antenna2.position.set(-0.2, 0.2, -0.3);
+      antenna2.rotation.x = -Math.PI / 6;
+      droneGroup.add(antenna2);
+    }
     
     return droneGroup;
   };
 
-  // Create a simplified city environment with fewer buildings
+  // Create a simplified city environment adjusted for mobile
   const createCity = (scene: THREE.Scene) => {
     // Building material options
     const buildingMaterials = [
@@ -326,10 +418,10 @@ const DroneScene: React.FC<DroneSceneProps> = ({
       new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.5 }),
     ];
     
-    // Generate fewer buildings
-    const buildingCount = 80; // Reduced from 200
-    const citySize = 400; // Wider spread for a more sparse, open environment
-    const maxHeight = 40; // Lower height
+    // Generate fewer buildings on mobile
+    const buildingCount = isMobile ? 50 : 80;
+    const citySize = 400;
+    const maxHeight = 40;
     const minHeight = 10;
     
     for (let i = 0; i < buildingCount; i++) {
@@ -342,14 +434,12 @@ const DroneScene: React.FC<DroneSceneProps> = ({
       const depth = 4 + Math.random() * 8;
       const height = minHeight + Math.random() * maxHeight;
       
-      // Create building
+      // Create building - simplified for mobile
       const buildingGeometry = new THREE.BoxGeometry(width, height, depth);
       const material = buildingMaterials[Math.floor(Math.random() * buildingMaterials.length)];
       const building = new THREE.Mesh(buildingGeometry, material);
       
       building.position.set(x, height / 2, z);
-      building.castShadow = true;
-      building.receiveShadow = true;
       
       scene.add(building);
       
@@ -364,20 +454,20 @@ const DroneScene: React.FC<DroneSceneProps> = ({
       ]);
     }
     
-    // Add fewer bridges
-    createBridges(scene);
+    // Fewer bridges on mobile
+    const bridgeCount = isMobile ? 2 : 3;
+    createBridges(scene, bridgeCount);
   };
 
-  // Add bridges to the scene - fewer and more spaced out
-  const createBridges = (scene: THREE.Scene) => {
+  // Add bridges to the scene - fewer for mobile
+  const createBridges = (scene: THREE.Scene, count = 3) => {
     // Bridge material
     const bridgeMaterial = new THREE.MeshStandardMaterial({
       color: 0x444444,
       roughness: 0.6
     });
     
-    // Create fewer bridges
-    for (let i = 0; i < 3; i++) { // Reduced from 5
+    for (let i = 0; i < count; i++) {
       const x = (Math.random() - 0.5) * 300;
       const z = (Math.random() - 0.5) * 300;
       const rotation = Math.random() * Math.PI;
@@ -385,19 +475,19 @@ const DroneScene: React.FC<DroneSceneProps> = ({
       // Bridge base
       const baseGeometry = new THREE.BoxGeometry(40, 1, 10);
       const base = new THREE.Mesh(baseGeometry, bridgeMaterial);
-      base.position.set(x, 20 + Math.random() * 10, z); // Higher bridges
+      base.position.set(x, 20 + Math.random() * 10, z);
       base.rotation.y = rotation;
-      base.castShadow = true;
-      base.receiveShadow = true;
       scene.add(base);
       
-      // Bridge supports
-      for (let j = -1; j <= 1; j += 2) {
+      // Bridge supports - simplified on mobile
+      const supportCount = isMobile ? 2 : 3;
+      for (let j = -1; j <= 1; j += (2/(supportCount-1))) {
+        if (isMobile && j === 0) continue; // Skip middle support on mobile
+        
         const supportGeometry = new THREE.BoxGeometry(1, 30, 10);
         const support = new THREE.Mesh(supportGeometry, bridgeMaterial);
         support.position.set(x + (j * 18), base.position.y - 15, z);
         support.rotation.y = rotation;
-        support.castShadow = true;
         scene.add(support);
         
         // Add to obstacles
@@ -431,21 +521,23 @@ const DroneScene: React.FC<DroneSceneProps> = ({
     }
   };
 
-  // Generate more coins with better visibility
+  // Generate more coins with better visibility, optimized for mobile
   const generateCoins = (scene: THREE.Scene, count = 300) => {
-    const coinGeometry = new THREE.CylinderGeometry(0.7, 0.7, 0.1, 16); // Larger coins
+    // Simpler geometry for mobile
+    const segments = isMobile ? 8 : 16;
+    const coinGeometry = new THREE.CylinderGeometry(0.7, 0.7, 0.1, segments);
     const coinMaterial = new THREE.MeshStandardMaterial({
       color: 0xFFD700,
       metalness: 0.8,
       roughness: 0.2,
       emissive: 0xFFD700,
-      emissiveIntensity: 0.6 // Brighter glow
+      emissiveIntensity: 0.6
     });
     
     const coinCount = count;
-    const areaSize = 350; // Larger area
+    const areaSize = 350;
     const minHeight = 5;
-    const maxHeight = 80; // Higher max height
+    const maxHeight = 80;
     
     for (let i = 0; i < coinCount; i++) {
       const x = (Math.random() - 0.5) * areaSize;
@@ -456,20 +548,22 @@ const DroneScene: React.FC<DroneSceneProps> = ({
       coin.position.set(x, y, z);
       coin.rotation.x = Math.PI / 2;
       
-      // Add a larger glow effect
-      const glowMaterial = new THREE.MeshStandardMaterial({
-        color: 0xFFD700,
-        transparent: true,
-        opacity: 0.4,
-        emissive: 0xFFD700,
-        emissiveIntensity: 0.4
-      });
-      const glowSphere = new THREE.Mesh(
-        new THREE.SphereGeometry(1.2, 16, 16), // Larger glow sphere
-        glowMaterial
-      );
-      glowSphere.position.copy(coin.position);
-      scene.add(glowSphere);
+      // Add glow effect only on non-mobile
+      if (!isMobile) {
+        const glowMaterial = new THREE.MeshStandardMaterial({
+          color: 0xFFD700,
+          transparent: true,
+          opacity: 0.4,
+          emissive: 0xFFD700,
+          emissiveIntensity: 0.4
+        });
+        const glowSphere = new THREE.Mesh(
+          new THREE.SphereGeometry(1.2, segments, segments),
+          glowMaterial
+        );
+        glowSphere.position.copy(coin.position);
+        scene.add(glowSphere);
+      }
       
       scene.add(coin);
       coinsRef.current.push(coin);
@@ -478,22 +572,25 @@ const DroneScene: React.FC<DroneSceneProps> = ({
         ...prev,
         {
           position: { x, y, z },
-          radius: 1.2, // Larger collision radius
+          radius: 1.2,
           collected: false
         }
       ]);
     }
   };
 
-  // Generate fewer obstacles
+  // Generate fewer obstacles, optimized for mobile
   const generateObstacles = (scene: THREE.Scene) => {
-    // Add fewer floating obstacles
-    const obstacleCount = 15; // Reduced from 30
+    // Even fewer obstacles on mobile
+    const obstacleCount = isMobile ? 10 : 15;
+    
+    // Simpler geometries for mobile
+    const segments = isMobile ? 8 : 16;
     const obstacleGeometries = [
       new THREE.BoxGeometry(3, 3, 3),
-      new THREE.SphereGeometry(2, 16, 16),
+      new THREE.SphereGeometry(2, segments, segments),
       new THREE.TetrahedronGeometry(2),
-      new THREE.CylinderGeometry(0, 2, 4, 8)
+      new THREE.CylinderGeometry(0, 2, 4, segments)
     ];
     
     const obstacleMaterial = new THREE.MeshStandardMaterial({
@@ -518,7 +615,6 @@ const DroneScene: React.FC<DroneSceneProps> = ({
         Math.random() * Math.PI
       );
       
-      obstacle.castShadow = true;
       scene.add(obstacle);
       
       obstaclesRef.current.push(obstacle);
@@ -532,7 +628,7 @@ const DroneScene: React.FC<DroneSceneProps> = ({
     }
   };
 
-  // Generate more power-ups with better visibility
+  // Generate power-ups optimized for mobile
   const generatePowerUps = (scene: THREE.Scene) => {
     const powerUpTypes: PowerUpType[] = ['shield', 'speed', 'magnet', 'timeFreeze'];
     const powerUpColors = {
@@ -542,10 +638,14 @@ const DroneScene: React.FC<DroneSceneProps> = ({
       'timeFreeze': 0x00cc66
     };
     
-    const powerUpCount = 40; // More power-ups (up from 30)
+    // Fewer power-ups on mobile
+    const powerUpCount = isMobile ? 25 : 40;
     const areaSize = 300;
     const minHeight = 10;
     const maxHeight = 70;
+    
+    // Simpler geometry for mobile
+    const segments = isMobile ? 8 : 16;
     
     for (let i = 0; i < powerUpCount; i++) {
       const x = (Math.random() - 0.5) * areaSize;
@@ -553,34 +653,36 @@ const DroneScene: React.FC<DroneSceneProps> = ({
       const z = (Math.random() - 0.5) * areaSize;
       
       const type = powerUpTypes[Math.floor(Math.random() * powerUpTypes.length)];
-      const powerUpGeometry = new THREE.SphereGeometry(1.0, 16, 16); // Larger power-ups
+      const powerUpGeometry = new THREE.SphereGeometry(1.0, segments, segments);
       const powerUpMaterial = new THREE.MeshStandardMaterial({
         color: powerUpColors[type],
         metalness: 0.7,
         roughness: 0.2,
         emissive: powerUpColors[type],
-        emissiveIntensity: 0.7, // Brighter
+        emissiveIntensity: 0.7,
         transparent: true,
-        opacity: 0.9 // More visible
+        opacity: 0.9
       });
       
       const powerUp = new THREE.Mesh(powerUpGeometry, powerUpMaterial);
       powerUp.position.set(x, y, z);
       
-      // Add larger glow effect
-      const glowMaterial = new THREE.MeshStandardMaterial({
-        color: powerUpColors[type],
-        transparent: true,
-        opacity: 0.4,
-        emissive: powerUpColors[type],
-        emissiveIntensity: 0.4
-      });
-      const glowSphere = new THREE.Mesh(
-        new THREE.SphereGeometry(1.8, 16, 16), // Larger glow
-        glowMaterial
-      );
-      glowSphere.position.copy(powerUp.position);
-      scene.add(glowSphere);
+      // Add glow effect only on non-mobile
+      if (!isMobile) {
+        const glowMaterial = new THREE.MeshStandardMaterial({
+          color: powerUpColors[type],
+          transparent: true,
+          opacity: 0.4,
+          emissive: powerUpColors[type],
+          emissiveIntensity: 0.4
+        });
+        const glowSphere = new THREE.Mesh(
+          new THREE.SphereGeometry(1.8, segments, segments),
+          glowMaterial
+        );
+        glowSphere.position.copy(powerUp.position);
+        scene.add(glowSphere);
+      }
       
       scene.add(powerUp);
       powerUpsRef.current.push(powerUp);
@@ -589,7 +691,7 @@ const DroneScene: React.FC<DroneSceneProps> = ({
         ...prev,
         {
           position: { x, y, z },
-          radius: 1.8, // Larger collision radius
+          radius: 1.8,
           type,
           collected: false
         }
@@ -597,7 +699,7 @@ const DroneScene: React.FC<DroneSceneProps> = ({
     }
   };
 
-  // Animation loop with improved game logic
+  // Animation loop with improved mobile support
   const animate = (time: number) => {
     if (previousTimeRef.current === undefined) {
       previousTimeRef.current = time;
@@ -607,10 +709,18 @@ const DroneScene: React.FC<DroneSceneProps> = ({
     previousTimeRef.current = time;
     
     if (isPlaying && droneRef.current && dronePhysicsRef.current && cameraRef.current && rendererRef.current && sceneRef.current) {
-      // Update drone physics
+      // Update drone physics with mobile-specific handling
+      const effectiveControls = { ...controls };
+      
+      // Apply smoother acceleration on mobile
+      if (isMobile) {
+        // For mobile, make throttle more responsive
+        effectiveControls.throttle *= 1.5;
+      }
+      
       const newPhysics = updateDronePhysics(
         dronePhysicsRef.current,
-        controls,
+        effectiveControls,
         { speedBoost: powerUp === 'speed' },
         deltaTime
       );
@@ -630,8 +740,11 @@ const DroneScene: React.FC<DroneSceneProps> = ({
         newPhysics.rotation.z
       );
       
-      // Improved camera following (better for mobile)
-      const cameraOffset = new THREE.Vector3(0, 1.5, 5); // Closer camera for mobile
+      // Improved camera following optimized for mobile
+      const cameraHeight = isMobile ? 1.8 : 1.5; // Higher camera on mobile
+      const cameraDistance = isMobile ? 4 : 5;   // Closer camera on mobile
+      
+      const cameraOffset = new THREE.Vector3(0, cameraHeight, cameraDistance);
       cameraOffset.applyAxisAngle(new THREE.Vector3(0, 1, 0), newPhysics.rotation.y);
       
       cameraRef.current.position.set(
@@ -646,8 +759,8 @@ const DroneScene: React.FC<DroneSceneProps> = ({
         newPhysics.position.z
       );
       
-      // Collision detection with larger margin
-      const droneRadius = 0.8; // Larger drone collision radius for easier gameplay
+      // More forgiving collision detection on mobile
+      const droneRadius = isMobile ? 1.0 : 0.8; // Larger collision radius for mobile
       
       if (gameStartedRef.current && powerUp !== 'shield' && checkCollision(
         dronePhysicsRef.current.position,
@@ -657,7 +770,7 @@ const DroneScene: React.FC<DroneSceneProps> = ({
         onCrash();
       }
       
-      // Easier coin collection
+      // More forgiving coin collection on mobile
       const collectedCoinIndices = checkCoinCollection(
         dronePhysicsRef.current.position,
         droneRadius,
@@ -686,7 +799,7 @@ const DroneScene: React.FC<DroneSceneProps> = ({
         onCoinCollect(collectedCoinIndices.length * 15);
       }
       
-      // Power-up collection with larger radius
+      // Power-up collection with mobile adjustments
       powerUpPositions.forEach((powerUp, index) => {
         if (!powerUp.collected) {
           const distance = Math.sqrt(
@@ -695,8 +808,9 @@ const DroneScene: React.FC<DroneSceneProps> = ({
             Math.pow(dronePhysicsRef.current!.position.z - powerUp.position.z, 2)
           );
           
-          // Larger detection radius
-          if (distance < (droneRadius * 1.5 + powerUp.radius)) {
+          // Even larger detection radius on mobile
+          const collectionMultiplier = isMobile ? 2.0 : 1.5;
+          if (distance < (droneRadius * collectionMultiplier + powerUp.radius)) {
             // Mark power-up as collected
             setPowerUpPositions(prev => {
               const newPositions = [...prev];
@@ -709,40 +823,53 @@ const DroneScene: React.FC<DroneSceneProps> = ({
               powerUpsRef.current[index].visible = false;
             }
             
-            // Longer duration power-ups
-            const duration = powerUp.type === 'magnet' ? 15 : 8; // Longer durations
+            // Longer duration power-ups on mobile
+            const baseDuration = powerUp.type === 'magnet' ? 15 : 8;
+            const duration = isMobile ? baseDuration * 1.2 : baseDuration;
             onPowerUpCollect(powerUp.type, duration);
           }
         }
       });
       
-      // Animate coins with more pronounced movement
-      coinsRef.current.forEach((coin, index) => {
-        if (!coinPositions[index]?.collected) {
-          coin.rotation.z += deltaTime * 3; // Faster rotation
-          coin.position.y += Math.sin(time / 400) * 0.02; // More noticeable bobbing
-        }
-      });
+      // Animation rates adjusted for mobile performance
+      const animationRate = isMobile ? 0.7 : 1.0;
       
-      // Animate power-ups with more pronounced effects
-      powerUpsRef.current.forEach((powerUp, index) => {
-        if (!powerUpPositions[index]?.collected) {
-          powerUp.position.y += Math.sin(time / 400) * 0.025;
-          powerUp.rotation.y += deltaTime * 1.5;
-          const scale = 1 + 0.15 * Math.sin(time / 250); // More pulsing
-          powerUp.scale.set(scale, scale, scale);
-        }
-      });
-      
-      // Animate propellers
-      if (droneRef.current.children) {
-        droneRef.current.children.forEach(child => {
-          if (child instanceof THREE.Mesh && 
-              child.geometry instanceof THREE.BoxGeometry && 
-              child.geometry.parameters.height < 0.1) {
-            child.rotation.y += controls.throttle * deltaTime * 25; // Faster rotation
+      // Animate coins with performance consideration on mobile
+      if (!isMobile || time % 2 === 0) { // Skip some frames on mobile
+        coinsRef.current.forEach((coin, index) => {
+          if (!coinPositions[index]?.collected) {
+            coin.rotation.z += deltaTime * 3 * animationRate;
+            coin.position.y += Math.sin(time / 400) * 0.02 * animationRate;
           }
         });
+      }
+      
+      // Animate power-ups with consideration for mobile
+      if (!isMobile || time % 2 === 0) { // Skip some frames on mobile
+        powerUpsRef.current.forEach((powerUp, index) => {
+          if (!powerUpPositions[index]?.collected) {
+            powerUp.position.y += Math.sin(time / 400) * 0.025 * animationRate;
+            powerUp.rotation.y += deltaTime * 1.5 * animationRate;
+            
+            // Simpler animation on mobile (less scale change)
+            const scaleAmount = isMobile ? 0.1 : 0.15;
+            const scale = 1 + scaleAmount * Math.sin(time / 250);
+            powerUp.scale.set(scale, scale, scale);
+          }
+        });
+      }
+      
+      // Animate propellers with performance consideration
+      if (!isMobile || time % 2 === 0) { // Optimize for mobile
+        if (droneRef.current.children) {
+          droneRef.current.children.forEach(child => {
+            if (child instanceof THREE.Mesh && 
+                child.geometry instanceof THREE.BoxGeometry && 
+                child.geometry.parameters.height < 0.1) {
+              child.rotation.y += controls.throttle * deltaTime * 25 * animationRate;
+            }
+          });
+        }
       }
       
       // Render scene
